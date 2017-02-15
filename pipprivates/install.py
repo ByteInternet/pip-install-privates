@@ -2,6 +2,7 @@
 import argparse
 import os
 import pip
+from pip.status_codes import SUCCESS
 
 
 def collect_requirements(fname, transform_with_token=None):
@@ -69,7 +70,7 @@ Non-private GitHub URL's and non-GitHub URL's are treated as-is.'
 
     # TODO: rewrite to a clear collect and a clear transform phase. Or pass in a transform function
     pip_args = ['install'] + collect_requirements(args.req_file, transform_with_token=args.token)
-    if not pip.main(pip_args):
+    if pip.main(pip_args) != SUCCESS:
         raise RuntimeError('Error installing requirements')
 
 
