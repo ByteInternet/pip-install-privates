@@ -34,11 +34,15 @@ def collect_requirements(fname, transform_with_token=None):
 
         # Rewrite private repositories that normally would use ssh (with keys in an agent), to using
         # an oauth key
-        elif tokens[0] == '-e' and tokens[1].startswith('git+git@github.com:'):
-            vcs_url = 'git+https://{}:x-oauth-basic@github.com/{}'.format(
-                transform_with_token, tokens[1][19:]) if transform_with_token else tokens[1]
+        elif tokens[0] == '-e':
+            if tokens[1].startswith('git+git@github.com:'):
+                vcs_url = 'git+https://{}:x-oauth-basic@github.com/{}'.format(
+                    transform_with_token, tokens[1][19:]) if transform_with_token else tokens[1]
 
-            collected += ['-e', vcs_url]
+                collected += [vcs_url]
+            else:
+                # Strip development flag `-e` to prevent dependencies installed within the project
+                collected += [tokens[1]]
 
         # No special casing for the rest. Just pass everything to pip
         else:
