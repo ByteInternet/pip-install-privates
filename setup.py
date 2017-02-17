@@ -11,7 +11,7 @@ setup(
     install_requires=['pip'],
     entry_points={
         'console_scripts': [
-            'pip-install-privates = pipprivates:install'
+            'pip-install-privates = pipprivates.install:install'
         ]
     }
 )

@@ -36,10 +36,11 @@ def collect_requirements(fname, transform_with_token=None):
         # an oauth key
         elif tokens[0] == '-e':
             if tokens[1].startswith('git+git@github.com:'):
-                vcs_url = 'git+https://{}:x-oauth-basic@github.com/{}'.format(
-                    transform_with_token, tokens[1][19:]) if transform_with_token else tokens[1]
-
-                collected += [vcs_url]
+                if transform_with_token:
+                    collected.append('git+https://{}:x-oauth-basic@github.com/{}'.format(
+                        transform_with_token, tokens[1][19:]))
+                else:
+                    collected.append('-e {}'.format(tokens[1]))
             else:
                 # Strip development flag `-e` to prevent dependencies installed within the project
                 collected += [tokens[1]]
@@ -55,21 +56,24 @@ def install():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="""
-Install all requirements from specified file with pip. Optionally transforms URL's
-to our private repo's to use a given Personal Access Token for github. That way
-installing them does not depend on a ssh-agent with suitable keys. Which you don't
-have when installing requirements in a Docker.
+Install all requirements from specified file with pip. Optionally transform
+editable URL's to private repo's to use a given Personal Access Token for
+github. That way installing them does not depend on a ssh-agent with suitable
+keys. Which you don't have when installing requirements in a Docker.
+These URLs will also be stripped of the -e flag, so they're installed globally.
 
 This means that the following URL:
-    -e git+git@github.com:ByteInternet/our-private-project.git@our-tag#egg=our_private_project
+  -e git+git@github.com:MyOrg/my-project.git@my-tag#egg=my_project
 would be transformed to:
-    -e git+https://<token>:x-oauth-basic@github.com/ByteInternet/our-private-project.git@our-tag#egg=our_private_project
+  git+https://<token>:x-oauth-basic@github.com/MyOrg/my-project.git@my-tag#egg=my_project
 
-Non-private GitHub URL's and non-GitHub URL's are treated as-is.'
+Non-private GitHub URL's (git+https) and non-GitHub URL's are kept as-is, but
+are also stripped of the -e flag. If no token is given, private URLs will be
+kept, including the -e flag (otherwise they can't be installed at all).
 """)
 
-    parser.add_argument('req_file', help='path to the requirements file to install')
     parser.add_argument('--token', '-t', help='Your Personal Access Token for private GitHub repositories')
+    parser.add_argument('req_file', help='path to the requirements file to install')
     args = parser.parse_args()
 
     # TODO: rewrite to a clear collect and a clear transform phase. Or pass in a transform function
