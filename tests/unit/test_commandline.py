@@ -1,3 +1,10 @@
+try:
+    # python 2
+    from StringIO import StringIO
+except ImportError:
+    # python 3
+    from io import StringIO
+
 from unittest import TestCase
 
 import sys
@@ -35,8 +42,9 @@ class TestCommandLine(TestCase):
                                                   transform_with_token='my-token')
 
     def test_commandline_requires_requirements_file(self):
-        with patch.object(sys, 'argv', ['pip-install']):
-            self.assertRaises(SystemExit, install)
+        with patch('sys.stderr', new_callable=StringIO):
+            with patch.object(sys, 'argv', ['pip-install']):
+                self.assertRaises(SystemExit, install)
 
     def test_calls_pip_with_install_and_collected_requirements(self):
         self.mock_collect.return_value = ['req1', 'req2']
