@@ -37,7 +37,7 @@ def collect_requirements(fname, transform_with_token=None):
         elif tokens[0] == '-e':
             if tokens[1].startswith('git+git@github.com:'):
                 if transform_with_token:
-                    collected.append('git+https://{}:x-oauth-basic@github.com/{}'.format(
+                    collected.append('-e git+https://{}:x-oauth-basic@github.com/{}'.format(
                         transform_with_token, tokens[1][19:]))
                 else:
                     collected.append('-e {}'.format(tokens[1]))
