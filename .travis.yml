@@ -10,7 +10,7 @@ install:
   - pip install tox-travis
 
 script:
-  - nosetests --with-coverage
+  - nosetests --with-coverage --cover-package=pipprivates
   - tox
 
 after_success:
