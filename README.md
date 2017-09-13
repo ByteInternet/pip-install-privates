@@ -1,8 +1,12 @@
 # pip-install-privates
+
+[![Build Status](https://travis-ci.org/ByteInternet/pip-install-privates.svg?branch=master)](https://travis-ci.org/ByteInternet/pip-install-privates)
+[![codecov](https://codecov.io/gh/ByteInternet/pip-install-privates/branch/master/graph/badge.svg)](https://codecov.io/gh/ByteInternet/pip-install-privates)
+
 Install pip packages from private repositories without an ssh agent
 
 
-# Usage
+## Usage
 To use pip-install-privates, you need a Personal Access Token from Github. Go to [**Settings** > **Personal access tokens**](https://github.com/settings/tokens) and click *Generate new token*. Make sure to give the **repo** permission (*Full control of private repositories*). Copy the generated token and store it somewhere safe. Then use it in the command below.
 
 ```
@@ -10,7 +14,7 @@ pip install git+https://github.com/ByteInternet/pip-install-privates.git@0.2#egg
 pip-install-privates --token <my-token> requirements.txt
 ```
 
-## --help
+### --help
 ```
 usage: install.py [-h] [--token TOKEN] req_file
 
@@ -39,7 +43,7 @@ optional arguments:
                         repositories
 ```
 
-# Hacking & testing
+## Hacking & testing
 Everything should run smoothly on python 2.7, 3.4, 3.5 and 3.6
 
 ```
