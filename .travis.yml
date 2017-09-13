@@ -7,8 +7,11 @@ python:
 
 install:
   - pip install -r requirements.txt
-  - pip install tox-travis
+  - pip install tox-travis codecov
 
 script:
   - nosetests
   - tox
+
+after_success:
+  - codecov
