@@ -5,12 +5,11 @@ import pip
 from pip.status_codes import SUCCESS
 
 
-def convert_url(url, token=None):
-    if token:
-        if url.startswith('git+ssh://git@github.com/'):
-            return 'git+https://{}:x-oauth-basic@github.com/{}'.format(token, url[25:])
-        elif url.startswith('git+git@github.com:'):
-            return 'git+https://{}:x-oauth-basic@github.com/{}'.format(token, url[19:])
+def convert_url(url, token):
+    if url.startswith('git+ssh://git@github.com/'):
+        return 'git+https://{}:x-oauth-basic@github.com/{}'.format(token, url[25:])
+    elif url.startswith('git+git@github.com:'):
+        return 'git+https://{}:x-oauth-basic@github.com/{}'.format(token, url[19:])
     return url
 
 def collect_requirements(fname, transform_with_token=None):
