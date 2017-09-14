@@ -34,7 +34,7 @@ def collect_requirements(fname, transform_with_token=None):
         #
         if len(tokens) == 1 or tokens[1].startswith('#'):
             if tokens[0].startswith('git+') and transform_with_token:
-                convert_url(tokens[0], transform_with_token)
+                collected.append(convert_url(tokens[0], transform_with_token))
             else:
                 collected.append(tokens[0])
 
