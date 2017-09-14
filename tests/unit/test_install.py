@@ -74,6 +74,12 @@ class TestInstall(TestCase):
         self.assertEqual(ret, ['git+https://github.com/ByteInternet/...'])
 
     def test_transforms_vcs_git_url_to_oauth(self):
+        fname = self._create_reqs_file(['git+git@github.com:ByteInternet/...'])
+
+        ret = collect_requirements(fname, transform_with_token='my-token')
+        self.assertEqual(ret, ['git+https://my-token:x-oauth-basic@github.com/ByteInternet/...'])
+
+    def test_transforms_vcs_git_url_to_oauth_dashe_option(self):
         fname = self._create_reqs_file(['-e git+git@github.com:ByteInternet/...'])
 
         ret = collect_requirements(fname, transform_with_token='my-token')
@@ -81,6 +87,12 @@ class TestInstall(TestCase):
 
     def test_transforms_vcs_ssh_url_to_oauth(self):
         fname = self._create_reqs_file(['git+ssh://git@github.com/ByteInternet/...'])
+
+        ret = collect_requirements(fname, transform_with_token='my-token')
+        self.assertEqual(ret, ['git+https://my-token:x-oauth-basic@github.com/ByteInternet/...'])
+
+    def test_transforms_vcs_ssh_url_to_oauth_dashe_option(self):
+        fname = self._create_reqs_file(['-e git+ssh://git@github.com/ByteInternet/...'])
 
         ret = collect_requirements(fname, transform_with_token='my-token')
         self.assertEqual(ret, ['git+https://my-token:x-oauth-basic@github.com/ByteInternet/...'])
