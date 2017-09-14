@@ -22,8 +22,16 @@ def collect_requirements(fname, transform_with_token=None):
         #   alembic>=0.8
         #   alembic==0.8.8
         #   alembic==0.8.8  # so we can apply Hypernode/ByteDB fixtures
+        #   git+ssh://github.com/myself/myproject
+        #   git+ssh://github.com/myself/myproject@v2
+        #
         if len(tokens) == 1 or tokens[1].startswith('#'):
-            collected.append(tokens[0])
+            if tokens[0].startswith('git+ssh://github.com/') and transform_with_token:
+                collected.append('git+https://{}:x-oauth-basic@github.com/{}'.format(
+                    transform_with_token, tokens[1][21:]))
+            else:
+                collected.append(tokens[0])
+
 
         # Handles:
         #   -r base.txt
