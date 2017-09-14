@@ -26,9 +26,9 @@ def collect_requirements(fname, transform_with_token=None):
         #   git+ssh://github.com/myself/myproject@v2
         #
         if len(tokens) == 1 or tokens[1].startswith('#'):
-            if tokens[0].startswith('git+ssh://github.com/') and transform_with_token:
+            if tokens[0].startswith('git+ssh://git@github.com/') and transform_with_token:
                 collected.append('git+https://{}:x-oauth-basic@github.com/{}'.format(
-                    transform_with_token, tokens[1][21:]))
+                    transform_with_token, tokens[0][25:]))
             else:
                 collected.append(tokens[0])
 
