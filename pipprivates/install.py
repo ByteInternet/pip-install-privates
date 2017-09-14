@@ -33,7 +33,7 @@ def collect_requirements(fname, transform_with_token=None):
         #   git+ssh://github.com/myself/myproject@v2
         #
         if len(tokens) == 1 or tokens[1].startswith('#'):
-            if tokens[0].startswith('git+') and transform_with_token:
+            if (tokens[0].startswith('git+ssh') or tokens[0].startswith('git+git')) and transform_with_token:
                 collected.append(convert_url(tokens[0], transform_with_token))
             else:
                 collected.append(tokens[0])
@@ -49,7 +49,7 @@ def collect_requirements(fname, transform_with_token=None):
         # Rewrite private repositories that normally would use ssh (with keys in an agent), to using
         # an oauth key
         elif tokens[0] == '-e':
-            if tokens[1].startswith('git+'):
+            if tokens[1].startswith('git+ssh') or tokens[1].startswith('git+git'):
                 if transform_with_token:
                     collected.append(convert_url(tokens[1], transform_with_token))
                 else:
