@@ -70,10 +70,12 @@ def install():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="""
 Install all requirements from specified file with pip. Optionally transform
-editable URL's to private repo's to use a given Personal Access Token for
+git+git and git+ssh url to private repo's to use a given Personal Access Token for
 github. That way installing them does not depend on a ssh-agent with suitable
 keys. Which you don't have when installing requirements in a Docker.
 These URLs will also be stripped of the -e flag, so they're installed globally.
+Note the -e flag is optional for the git+git//github.com and git+ssh://github.com
+urls.
 
 This means that the following URL:
   -e git+git@github.com:MyOrg/my-project.git@my-tag#egg=my_project
