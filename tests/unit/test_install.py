@@ -2,7 +2,7 @@ import os
 import tempfile
 from unittest import TestCase
 
-from pipprivates.install import collect_requirements
+from pip_install_privates.install import collect_requirements
 
 
 class TestInstall(TestCase):
