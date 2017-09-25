@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='pip_install_privates',
-    version='0.1',
+    version='0.3',
     description='Install pip packages from private repositories without an ssh agent',
     author='Byte Internet',
     author_email='rickvandeloo@gmail.com',
