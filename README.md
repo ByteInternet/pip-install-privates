@@ -5,6 +5,18 @@
 
 Install pip packages from private repositories without an ssh agent
 
+## Installation
+
+Get it from [pypi](https://pypi.python.org/pypi/pip-install-privates/)
+```
+pip install pip-install-privates
+```
+
+Or install directly from GitHub
+```
+pip install git+https://github.com/ByteInternet/pip-install-privates.git@master#egg=pip-install-privates
+```
+
 
 ## Usage
 To use pip-install-privates, you need a Personal Access Token from Github. Go to [**Settings** > **Personal access tokens**](https://github.com/settings/tokens) and click *Generate new token*. Make sure to give the **repo** permission (*Full control of private repositories*). Copy the generated token and store it somewhere safe. Then use it in the command below.
