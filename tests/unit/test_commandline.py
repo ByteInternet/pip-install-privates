@@ -11,13 +11,13 @@ import sys
 from mock import patch
 from pip.status_codes import ERROR, SUCCESS
 
-from pipprivates.install import install
+from pip_install_privates.install import install
 
 
 class TestCommandLine(TestCase):
 
     def setUp(self):
-        collect_patcher = patch('pipprivates.install.collect_requirements')
+        collect_patcher = patch('pip_install_privates.install.collect_requirements')
         self.addCleanup(collect_patcher.stop)
         self.mock_collect = collect_patcher.start()
 
