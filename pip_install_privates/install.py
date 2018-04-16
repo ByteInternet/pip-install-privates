@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 import argparse
 import os
-import pip
-from pip.status_codes import SUCCESS
+try:
+    from pip import status_codes, main as pip_main
+except ImportError:
+    from pip._internal import status_codes, main as pip_main
 
 
 def convert_url(url, token):
@@ -93,7 +95,7 @@ kept, including the -e flag (otherwise they can't be installed at all).
 
     # TODO: rewrite to a clear collect and a clear transform phase. Or pass in a transform function
     pip_args = ['install'] + collect_requirements(args.req_file, transform_with_token=args.token)
-    if pip.main(pip_args) != SUCCESS:
+    if pip_main(pip_args) != status_codes.SUCCESS:
         raise RuntimeError('Error installing requirements')
 
 
