@@ -9,9 +9,8 @@ from unittest import TestCase
 
 import sys
 from mock import patch
-from pip.status_codes import ERROR, SUCCESS
 
-from pip_install_privates.install import install
+from pip_install_privates.install import install, status_codes
 
 
 class TestCommandLine(TestCase):
@@ -21,10 +20,10 @@ class TestCommandLine(TestCase):
         self.addCleanup(collect_patcher.stop)
         self.mock_collect = collect_patcher.start()
 
-        pip_patcher = patch('pip.main')
+        pip_patcher = patch('pip_install_privates.install.pip_main')
         self.addCleanup(pip_patcher.stop)
         self.mock_pip = pip_patcher.start()
-        self.mock_pip.return_value = SUCCESS
+        self.mock_pip.return_value = status_codes.SUCCESS
 
     def test_commandline_passes_requirements_file_to_collect(self):
         with patch.object(sys, 'argv', ['pip-install', 'requirements.txt']):
@@ -55,7 +54,7 @@ class TestCommandLine(TestCase):
         self.mock_pip.assert_called_once_with(['install', 'req1', 'req2'])
 
     def test_raises_error_if_pip_fails(self):
-        self.mock_pip.return_value = ERROR
+        self.mock_pip.return_value = status_codes.ERROR
 
         with patch.object(sys, 'argv', ['pip-install', 'requirements.txt']):
             self.assertRaises(RuntimeError, install)
