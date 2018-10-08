@@ -1,10 +1,21 @@
 #!/usr/bin/env python
 import argparse
 import os
-try:
-    from pip import status_codes, main as pip_main
-except ImportError:
+from pip import __version__ as pip_version
+
+from pip_install_privates.utils import parse_pip_version
+
+pip_version_tuple = parse_pip_version(pip_version)
+gte_18_1 = pip_version_tuple[0] == 18 and pip_version_tuple[1] >= 1
+if pip_version_tuple[0] > 18 or gte_18_1:
+    from pip._internal import main as pip_main
+    from pip._internal.cli import status_codes
+
+elif pip_version_tuple[0] >= 10:
     from pip._internal import status_codes, main as pip_main
+
+else:
+    from pip import status_codes, main as pip_main
 
 
 def convert_url(url, token):
