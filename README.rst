@@ -40,7 +40,7 @@ Run ``pip_install_privates --help`` for more information.
 Developing
 ----------
 
-After ``git clone``ing the repository, create a virtualenv however you prefer, for example:
+After performing ``git clone`` on the repository, create a virtualenv however you prefer, for example:
 
 .. code-block:: bash
 
