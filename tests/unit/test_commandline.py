@@ -40,6 +40,21 @@ class TestCommandLine(TestCase):
         self.mock_collect.assert_called_once_with('requirements.txt',
                                                   transform_with_token='my-token')
 
+    def test_uses_github_token_environment_variable_if_no_token_supplied(self):
+        with patch.dict('pip_install_privates.install.os.environ', {'GITHUB_TOKEN': 'my-token'}):
+            with patch.object(sys, 'argv', ['pip-install', 'requirements.txt']):
+                install()
+
+        self.mock_collect.assert_called_once_with('requirements.txt',
+                                                  transform_with_token='my-token')
+
+    def test_uses_none_if_no_token_supplied_and_no_github_token_defined_as_environment_variable(self):
+        with patch.object(sys, 'argv', ['pip-install', 'requirements.txt']):
+            install()
+
+        self.mock_collect.assert_called_once_with('requirements.txt',
+                                                  transform_with_token=None)
+
     def test_commandline_requires_requirements_file(self):
         with patch('sys.stderr', new_callable=StringIO):
             with patch.object(sys, 'argv', ['pip-install']):

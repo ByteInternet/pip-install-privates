@@ -11,7 +11,7 @@ def readfile(filename):
 
 setup(
     name='pip_install_privates',
-    version='0.5.1',
+    version='0.5.2',
     description='Install pip packages from private repositories without an ssh agent',
     long_description=readfile('README.rst'),
     long_description_content_type='text/x-rst',

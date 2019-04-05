@@ -100,7 +100,8 @@ are also stripped of the -e flag. If no token is given, private URLs will be
 kept, including the -e flag (otherwise they can't be installed at all).
 """)
 
-    parser.add_argument('--token', '-t', help='Your Personal Access Token for private GitHub repositories')
+    parser.add_argument('--token', '-t', help='Your Personal Access Token for private GitHub repositories',
+                        default=os.environ.get('GITHUB_TOKEN'))
     parser.add_argument('req_file', help='path to the requirements file to install')
     args = parser.parse_args()
 
