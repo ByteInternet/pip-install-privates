@@ -18,12 +18,26 @@ else:
     from pip import status_codes, main as pip_main
 
 
-def convert_url(url, token):
+def convert_url_with_token(url, token):
     if url.startswith('git+ssh://git@github.com/'):
         return 'git+https://{}:x-oauth-basic@github.com/{}'.format(token, url[25:])
     elif url.startswith('git+git@github.com:'):
         return 'git+https://{}:x-oauth-basic@github.com/{}'.format(token, url[19:])
     return url
+
+
+def convert_editable_url_with_token(url, token):
+    url = convert_url_with_token(url, token)
+    return ['-e', url]
+
+
+def convert_editable_url(url):
+    if url.startswith('git+ssh://git@github.com/'):
+        url = 'git+https://github.com/{}'.format(url[25:])
+    elif url.startswith('git+git@github.com:'):
+        url = 'git+https://github.com/{}'.format(url[19:])
+    return ['-e', url]
+
 
 def collect_requirements(fname, transform_with_token=None):
     with open(fname) as reqs:
@@ -47,7 +61,7 @@ def collect_requirements(fname, transform_with_token=None):
         #
         if len(tokens) == 1 or tokens[1].startswith('#'):
             if (tokens[0].startswith('git+ssh') or tokens[0].startswith('git+git')) and transform_with_token:
-                collected.append(convert_url(tokens[0], transform_with_token))
+                collected.append(convert_url_with_token(tokens[0], transform_with_token))
             else:
                 collected.append(tokens[0])
 
@@ -64,12 +78,11 @@ def collect_requirements(fname, transform_with_token=None):
         elif tokens[0] == '-e':
             if tokens[1].startswith('git+ssh') or tokens[1].startswith('git+git'):
                 if transform_with_token:
-                    collected.append(convert_url(tokens[1], transform_with_token))
+                    collected += convert_editable_url_with_token(tokens[1], transform_with_token)
                 else:
-                    collected.append('-e {}'.format(tokens[1]))
+                    collected += convert_editable_url(tokens[1])
             else:
-                # Strip development flag `-e` to prevent dependencies installed within the project
-                collected += [tokens[1]]
+                collected += ['-e', tokens[1]]
 
         # No special casing for the rest. Just pass everything to pip
         else:
