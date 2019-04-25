@@ -17,13 +17,51 @@ elif pip_version_tuple[0] >= 10:
 else:
     from pip import status_codes, main as pip_main
 
+GIT_SSH_PREFIX = 'git+ssh://git@github.com/'
+GIT_GIT_PREFIX = 'git+git@github.com:'
 
-def convert_url(url, token):
-    if url.startswith('git+ssh://git@github.com/'):
-        return 'git+https://{}:x-oauth-basic@github.com/{}'.format(token, url[25:])
-    elif url.startswith('git+git@github.com:'):
-        return 'git+https://{}:x-oauth-basic@github.com/{}'.format(token, url[19:])
+
+def convert_to_github_url_with_token(url, token):
+    """
+    Convert a Github URL to a git+https url that identifies via an Oauth token. This allows for installation of
+    private packages.
+    :param url: The url to convert into a Github access token oauth url.
+    :param token: The Github access token to use for the oauth url.
+    :return: A git+https url with Oauth identification.
+    """
+    if url.startswith(GIT_SSH_PREFIX):
+        return 'git+https://{}:x-oauth-basic@github.com/{}'.format(token, url[len(GIT_SSH_PREFIX):])
+    elif url.startswith(GIT_GIT_PREFIX):
+        return 'git+https://{}:x-oauth-basic@github.com/{}'.format(token, url[len(GIT_GIT_PREFIX):])
     return url
+
+
+def convert_to_editable_github_url_with_token(url, token):
+    """
+    Convert a Github URL to an editable git+https url that identifies via an Oauth token. The Oauth identification
+    allows for installation of private packages. The editable flag means the package
+    will be installed as source (i.e. all files will be present instead of it just being installed as a package).
+    :param url: The url to convert into a Github access token oauth url.
+    :param token: The Github access token to use for the oauth url.
+    :return: list: The editable flag for pip and a git+https url with Oauth identification.
+    """
+    url = convert_to_github_url_with_token(url, token)
+    return ['-e', url]
+
+
+def convert_to_editable_github_url(url):
+    """
+    Convert a Github URL to a git+https url (does not work for private packages). The editable flag means the package
+    will be installed as source (i.e. all files will be present instead of it just being installed as a package).
+    :param url: The url to convert into a Github access token oauth url.
+    :return: list: The editable flag for pip and a git+https url.
+    """
+    if url.startswith(GIT_SSH_PREFIX):
+        url = 'git+https://github.com/{}'.format(url[len(GIT_SSH_PREFIX):])
+    elif url.startswith(GIT_GIT_PREFIX):
+        url = 'git+https://github.com/{}'.format(url[len(GIT_GIT_PREFIX):])
+    return ['-e', url]
+
 
 def collect_requirements(fname, transform_with_token=None):
     with open(fname) as reqs:
@@ -47,7 +85,7 @@ def collect_requirements(fname, transform_with_token=None):
         #
         if len(tokens) == 1 or tokens[1].startswith('#'):
             if (tokens[0].startswith('git+ssh') or tokens[0].startswith('git+git')) and transform_with_token:
-                collected.append(convert_url(tokens[0], transform_with_token))
+                collected.append(convert_to_github_url_with_token(tokens[0], transform_with_token))
             else:
                 collected.append(tokens[0])
 
@@ -64,12 +102,11 @@ def collect_requirements(fname, transform_with_token=None):
         elif tokens[0] == '-e':
             if tokens[1].startswith('git+ssh') or tokens[1].startswith('git+git'):
                 if transform_with_token:
-                    collected.append(convert_url(tokens[1], transform_with_token))
+                    collected += convert_to_editable_github_url_with_token(tokens[1], transform_with_token)
                 else:
-                    collected.append('-e {}'.format(tokens[1]))
+                    collected += convert_to_editable_github_url(tokens[1])
             else:
-                # Strip development flag `-e` to prevent dependencies installed within the project
-                collected += [tokens[1]]
+                collected += ['-e', tokens[1]]
 
         # No special casing for the rest. Just pass everything to pip
         else:
