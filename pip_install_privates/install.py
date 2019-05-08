@@ -19,6 +19,7 @@ else:
 
 GIT_SSH_PREFIX = 'git+ssh://git@github.com/'
 GIT_GIT_PREFIX = 'git+git@github.com:'
+GIT_HTTPS_PREFIX = 'git+https://github.com/'
 
 
 def convert_to_github_url_with_token(url, token):
@@ -29,10 +30,9 @@ def convert_to_github_url_with_token(url, token):
     :param token: The Github access token to use for the oauth url.
     :return: A git+https url with Oauth identification.
     """
-    if url.startswith(GIT_SSH_PREFIX):
-        return 'git+https://{}:x-oauth-basic@github.com/{}'.format(token, url[len(GIT_SSH_PREFIX):])
-    elif url.startswith(GIT_GIT_PREFIX):
-        return 'git+https://{}:x-oauth-basic@github.com/{}'.format(token, url[len(GIT_GIT_PREFIX):])
+    for prefix in [GIT_SSH_PREFIX, GIT_GIT_PREFIX, GIT_HTTPS_PREFIX]:
+        if url.startswith(prefix):
+            return 'git+https://{}:x-oauth-basic@github.com/{}'.format(token, url[len(prefix):])
     return url
 
 
@@ -56,11 +56,14 @@ def convert_to_editable_github_url(url):
     :param url: The url to convert into a Github access token oauth url.
     :return: list: The editable flag for pip and a git+https url.
     """
-    if url.startswith(GIT_SSH_PREFIX):
-        url = 'git+https://github.com/{}'.format(url[len(GIT_SSH_PREFIX):])
-    elif url.startswith(GIT_GIT_PREFIX):
-        url = 'git+https://github.com/{}'.format(url[len(GIT_GIT_PREFIX):])
+    for prefix in [GIT_SSH_PREFIX, GIT_GIT_PREFIX]:
+        if url.startswith(prefix):
+            url = 'git+https://github.com/{}'.format(url[len(prefix):])
     return ['-e', url]
+
+
+def can_convert_url(url):
+    return url.startswith('git+ssh') or url.startswith('git+git') or url.startswith('git+https')
 
 
 def collect_requirements(fname, transform_with_token=None):
@@ -84,11 +87,10 @@ def collect_requirements(fname, transform_with_token=None):
         #   git+ssh://github.com/myself/myproject@v2
         #
         if len(tokens) == 1 or tokens[1].startswith('#'):
-            if (tokens[0].startswith('git+ssh') or tokens[0].startswith('git+git')) and transform_with_token:
+            if can_convert_url(tokens[0]) and transform_with_token:
                 collected.append(convert_to_github_url_with_token(tokens[0], transform_with_token))
             else:
                 collected.append(tokens[0])
-
 
         # Handles:
         #   -r base.txt
@@ -100,7 +102,7 @@ def collect_requirements(fname, transform_with_token=None):
         # Rewrite private repositories that normally would use ssh (with keys in an agent), to using
         # an oauth key
         elif tokens[0] == '-e':
-            if tokens[1].startswith('git+ssh') or tokens[1].startswith('git+git'):
+            if can_convert_url(tokens[1]):
                 if transform_with_token:
                     collected += convert_to_editable_github_url_with_token(tokens[1], transform_with_token)
                 else:

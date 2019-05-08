@@ -119,4 +119,34 @@ class TestInstall(TestCase):
                                '-e', 'git+https://github.com/ByteInternet/...',
                                'nose==1.3.7', 'fso==0.3.1'])
 
+    def test_transforms_git_plus_https_urls_to_https_url_with_oauth_token_if_token_provided(self):
+        file1 = self._create_reqs_file(['mock==2.0.0', 'git+https://github.com/ByteInternet/...', 'nose==1.3.7'])
+        fname = self._create_reqs_file(['-r {}'.format(file1), 'fso==0.3.1'])
+
+        ret = collect_requirements(fname, transform_with_token='my-token')
+
+        self.assertEqual(ret, ['mock==2.0.0',
+                               'git+https://my-token:x-oauth-basic@github.com/ByteInternet/...',
+                               'nose==1.3.7', 'fso==0.3.1'])
+
+    def test_transforms_editable_git_plus_https_urls_to_editable_https_url_with_oauth_token_if_token_provided(self):
+        file1 = self._create_reqs_file(['mock==2.0.0', '-e git+https://github.com/ByteInternet/...', 'nose==1.3.7'])
+        fname = self._create_reqs_file(['-r {}'.format(file1), 'fso==0.3.1'])
+
+        ret = collect_requirements(fname, transform_with_token='my-token')
+
+        self.assertEqual(ret, ['mock==2.0.0',
+                               '-e', 'git+https://my-token:x-oauth-basic@github.com/ByteInternet/...',
+                               'nose==1.3.7', 'fso==0.3.1'])
+
+    def test_does_not_transform_git_plus_https_urls_to_https_url_with_oauth_token_if_no_token_provided(self):
+        file1 = self._create_reqs_file(['mock==2.0.0', '-e git+https://github.com/ByteInternet/...', 'nose==1.3.7'])
+        fname = self._create_reqs_file(['-r {}'.format(file1), 'fso==0.3.1'])
+
+        ret = collect_requirements(fname)
+
+        self.assertEqual(ret, ['mock==2.0.0',
+                               '-e', 'git+https://github.com/ByteInternet/...',
+                               'nose==1.3.7', 'fso==0.3.1'])
+
 
