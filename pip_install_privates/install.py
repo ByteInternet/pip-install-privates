@@ -7,7 +7,12 @@ from pip_install_privates.utils import parse_pip_version
 
 pip_version_tuple = parse_pip_version(pip_version)
 gte_18_1 = pip_version_tuple[0] == 18 and pip_version_tuple[1] >= 1
-if pip_version_tuple[0] > 18 or gte_18_1:
+
+if pip_version_tuple[0] >= 19 and pip_version_tuple[1] >= 3:
+    from pip._internal.main import main as pip_main
+    from pip._internal.cli import status_codes
+
+elif pip_version_tuple[0] > 18 or gte_18_1:
     from pip._internal import main as pip_main
     from pip._internal.cli import status_codes
 
