@@ -107,19 +107,55 @@ def collect_requirements(fname, transform_with_token=None):
         # Rewrite private repositories that normally would use ssh (with keys in an agent), to using
         # an oauth key
         elif tokens[0] == '-e':
-            if can_convert_url(tokens[1]):
+            # Remove any single quotes that might be present. This is for cases where an editable is used with pip
+            # environment markers. It has to be quoted in those cases, i.e.:
+            # -e 'git+git@github.com:ByteInternet/my-repo.git@20201127.1#egg=my-repo ; python_version=="3.7"'
+            # Do not remove double quotes, since these could be used in the environment marker string i.e. "3.7".
+            stripped_tokens = [token.replace("'", "") for token in tokens]
+
+            if can_convert_url(stripped_tokens[1]):
                 if transform_with_token:
-                    collected += convert_to_editable_github_url_with_token(tokens[1], transform_with_token)
+                    flag, github_url = convert_to_editable_github_url_with_token(
+                        stripped_tokens[1], transform_with_token)
+
+                    github_url = add_potential_pip_environment_markers_to_url(stripped_tokens, github_url)
+                    collected += [flag, github_url]
                 else:
-                    collected += convert_to_editable_github_url(tokens[1])
+                    flag, github_url = convert_to_editable_github_url(stripped_tokens[1])
+
+                    github_url = add_potential_pip_environment_markers_to_url(stripped_tokens, github_url)
+                    collected += [flag, github_url]
             else:
-                collected += ['-e', tokens[1]]
+                url = add_potential_pip_environment_markers_to_url(stripped_tokens, stripped_tokens[1])
+                collected += ['-e', url]
+
+        elif ';' in tokens:
+            collected += [' '.join(tokens)]
 
         # No special casing for the rest. Just pass everything to pip
         else:
             collected += tokens
 
     return collected
+
+
+def add_potential_pip_environment_markers_to_url(stripped_tokens, url):
+    """
+    :param stripped_tokens: A list of tokens for the install requirement, without any single quotes (this can be present
+    in cases where an editable requirement is specified with environment markers). I.e.:
+    -e 'git+git@github.com:ByteInternet/my-repo.git@20201127.1#egg=my-repo ; python_version=="3.7"'
+
+    :param url: The github URL of the editable requirement.
+
+    :return: The github URL of the editable requirement with the pip environment marker appended.
+    """
+    try:
+        pip_environment_marker_index = stripped_tokens.index(';')
+    except ValueError:
+        return url
+
+    environment_index = pip_environment_marker_index + 1
+    return '{} ; {}'.format(url, stripped_tokens[environment_index])
 
 
 def install():
