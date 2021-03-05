@@ -166,10 +166,44 @@ class TestInstall(TestCase):
             'fso==0.3.1'
         ])
 
+    def test_transforms_editable_requirement_with_pip_environment_marker_inline_comment_to_github_url_with_token(self):
+        file = self._create_reqs_file([
+            'mock==2.0.0',
+            "-e 'git+https://github.com/ByteInternet/... ; python_version==\"2.7\"'  # We need this because reasons",
+            'nose==1.3.7'
+        ])
+        fname = self._create_reqs_file(['-r {}'.format(file), 'fso==0.3.1'])
+
+        ret = collect_requirements(fname, transform_with_token=True)
+
+        self.assertEqual(ret, [
+            'mock==2.0.0',
+            '-e', 'git+https://True:x-oauth-basic@github.com/ByteInternet/... ; python_version=="2.7"',
+            'nose==1.3.7',
+            'fso==0.3.1'
+        ])
+
     def test_transforms_editable_requirement_with_pip_environment_marker_to_github_url_without_token(self):
         file = self._create_reqs_file([
             'mock==2.0.0',
             "-e 'git+https://github.com/ByteInternet/... ; python_version==\"2.7\"'",
+            'nose==1.3.7'
+        ])
+        fname = self._create_reqs_file(['-r {}'.format(file), 'fso==0.3.1'])
+
+        ret = collect_requirements(fname)
+
+        self.assertEqual(ret, [
+            'mock==2.0.0',
+            '-e', 'git+https://github.com/ByteInternet/... ; python_version=="2.7"',
+            'nose==1.3.7',
+            'fso==0.3.1'
+        ])
+
+    def test_transforms_editable_requirement_with_pip_environment_marker_inline_comment_to_github_url_no_token(self):
+        file = self._create_reqs_file([
+            'mock==2.0.0',
+            "-e 'git+https://github.com/ByteInternet/... ; python_version==\"2.7\"'  # We need this because reasons",
             'nose==1.3.7'
         ])
         fname = self._create_reqs_file(['-r {}'.format(file), 'fso==0.3.1'])
@@ -200,10 +234,44 @@ class TestInstall(TestCase):
             'fso==0.3.1'
         ])
 
-    def test_transform_requirement_if_pip_environment_marker_in_tokens(self):
+    def test_transforms_editable_requirement_with_pip_environment_marker_inline_comment_if_cannot_convert_to_url(self):
+        file = self._create_reqs_file([
+            'mock==2.0.0',
+            "-e 'banana+https://github.com/ByteInternet/... ; python_version==\"2.7\"'  # We need this because reasons",
+            'nose==1.3.7'
+        ])
+        fname = self._create_reqs_file(['-r {}'.format(file), 'fso==0.3.1'])
+
+        ret = collect_requirements(fname)
+
+        self.assertEqual(ret, [
+            'mock==2.0.0',
+            '-e', 'banana+https://github.com/ByteInternet/... ; python_version=="2.7"',
+            'nose==1.3.7',
+            'fso==0.3.1'
+        ])
+
+    def test_transforms_requirement_if_pip_environment_marker_in_tokens(self):
         file = self._create_reqs_file([
             'mock==2.0.0',
             "myrequirement==1.3.3.7 ; python_version==\"3.7\"",
+            'nose==1.3.7'
+        ])
+        fname = self._create_reqs_file(['-r {}'.format(file), 'fso==0.3.1'])
+
+        ret = collect_requirements(fname)
+
+        self.assertEqual(ret, [
+            'mock==2.0.0',
+            'myrequirement==1.3.3.7 ; python_version=="3.7"',
+            'nose==1.3.7',
+            'fso==0.3.1'
+        ])
+
+    def test_transforms_requirement_if_pip_environment_marker_in_tokens_with_inline_comment(self):
+        file = self._create_reqs_file([
+            'mock==2.0.0',
+            "myrequirement==1.3.3.7 ; python_version==\"3.7\"  # We need this because reasons",
             'nose==1.3.7'
         ])
         fname = self._create_reqs_file(['-r {}'.format(file), 'fso==0.3.1'])
