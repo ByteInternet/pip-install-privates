@@ -118,19 +118,19 @@ def collect_requirements(fname, transform_with_token=None):
                     flag, github_url = convert_to_editable_github_url_with_token(
                         stripped_tokens[1], transform_with_token)
 
-                    github_url = add_potential_pip_environment_markers_to_url(stripped_tokens, github_url)
+                    github_url = add_potential_pip_environment_markers_to_requirement(stripped_tokens, github_url)
                     collected += [flag, github_url]
                 else:
                     flag, github_url = convert_to_editable_github_url(stripped_tokens[1])
 
-                    github_url = add_potential_pip_environment_markers_to_url(stripped_tokens, github_url)
+                    github_url = add_potential_pip_environment_markers_to_requirement(stripped_tokens, github_url)
                     collected += [flag, github_url]
             else:
-                url = add_potential_pip_environment_markers_to_url(stripped_tokens, stripped_tokens[1])
+                url = add_potential_pip_environment_markers_to_requirement(stripped_tokens, stripped_tokens[1])
                 collected += ['-e', url]
 
         elif ';' in tokens:
-            collected += [' '.join(tokens)]
+            collected += [add_potential_pip_environment_markers_to_requirement(tokens, tokens[0])]
 
         # No special casing for the rest. Just pass everything to pip
         else:
@@ -139,23 +139,23 @@ def collect_requirements(fname, transform_with_token=None):
     return collected
 
 
-def add_potential_pip_environment_markers_to_url(stripped_tokens, url):
+def add_potential_pip_environment_markers_to_requirement(stripped_tokens, requirement):
     """
     :param stripped_tokens: A list of tokens for the install requirement, without any single quotes (this can be present
     in cases where an editable requirement is specified with environment markers). I.e.:
     -e 'git+git@github.com:ByteInternet/my-repo.git@20201127.1#egg=my-repo ; python_version=="3.7"'
 
-    :param url: The github URL of the editable requirement.
+    :param requirement: The requirement. I.e. 'mock==2.0.0' or git+git@github.com:ByteInternet/repo.git@1.1.1#egg=repo
 
     :return: The github URL of the editable requirement with the pip environment marker appended.
     """
     try:
         pip_environment_marker_index = stripped_tokens.index(';')
     except ValueError:
-        return url
+        return requirement
 
     environment_index = pip_environment_marker_index + 1
-    return '{} ; {}'.format(url, stripped_tokens[environment_index])
+    return '{} ; {}'.format(requirement, stripped_tokens[environment_index])
 
 
 def install():
