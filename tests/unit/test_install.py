@@ -285,4 +285,72 @@ class TestInstall(TestCase):
             'fso==0.3.1'
         ])
 
+    def test_transforms_non_editable_github_url_with_pip_environment_markers_to_correct_requirement(self):
+        file = self._create_reqs_file([
+            'mock==2.0.0',
+            'git+ssh://git@github.com/ByteInternet/... ; python_version=="3.7"',
+            'nose==1.3.7'
+        ])
+        fname = self._create_reqs_file(['-r {}'.format(file), 'fso==0.3.1'])
+
+        ret = collect_requirements(fname)
+
+        self.assertEqual(ret, [
+            'mock==2.0.0',
+            'git+https://github.com/ByteInternet/... ; python_version=="3.7"',
+            'nose==1.3.7',
+            'fso==0.3.1'
+        ])
+
+    def test_transforms_non_editable_github_url_with_pip_environment_markers_to_correct_requirement_with_token(self):
+        file = self._create_reqs_file([
+            'mock==2.0.0',
+            'git+ssh://git@github.com/ByteInternet/... ; python_version=="3.7"',
+            'nose==1.3.7'
+        ])
+        fname = self._create_reqs_file(['-r {}'.format(file), 'fso==0.3.1'])
+
+        ret = collect_requirements(fname, transform_with_token=True)
+
+        self.assertEqual(ret, [
+            'mock==2.0.0',
+            'git+https://True:x-oauth-basic@github.com/ByteInternet/... ; python_version=="3.7"',
+            'nose==1.3.7',
+            'fso==0.3.1'
+        ])
+
+    def test_transforms_non_editable_github_url_with_pip_environment_markers_to_correct_requirement_with_comment(self):
+        file = self._create_reqs_file([
+            'mock==2.0.0',
+            'git+ssh://git@github.com/ByteInternet/... ; python_version=="3.7"  # We need this',
+            'nose==1.3.7'
+        ])
+        fname = self._create_reqs_file(['-r {}'.format(file), 'fso==0.3.1'])
+
+        ret = collect_requirements(fname)
+
+        self.assertEqual(ret, [
+            'mock==2.0.0',
+            'git+https://github.com/ByteInternet/... ; python_version=="3.7"',
+            'nose==1.3.7',
+            'fso==0.3.1'
+        ])
+
+    def test_transforms_non_editable_github_url_with_pip_environment_markers_to_correct_requirement_with_token_and_comment(self):
+        file = self._create_reqs_file([
+            'mock==2.0.0',
+            'git+ssh://git@github.com/ByteInternet/... ; python_version=="3.7"  # We need this because reasons',
+            'nose==1.3.7'
+        ])
+        fname = self._create_reqs_file(['-r {}'.format(file), 'fso==0.3.1'])
+
+        ret = collect_requirements(fname, transform_with_token=True)
+
+        self.assertEqual(ret, [
+            'mock==2.0.0',
+            'git+https://True:x-oauth-basic@github.com/ByteInternet/... ; python_version=="3.7"',
+            'nose==1.3.7',
+            'fso==0.3.1'
+        ])
+
 
