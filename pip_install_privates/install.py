@@ -41,30 +41,11 @@ def convert_to_github_url_with_token(url, token):
     return url
 
 
-def convert_to_editable_github_url_with_token(url, token):
-    """
-    Convert a Github URL to an editable git+https url that identifies via an Oauth token. The Oauth identification
-    allows for installation of private packages. The editable flag means the package
-    will be installed as source (i.e. all files will be present instead of it just being installed as a package).
-    :param url: The url to convert into a Github access token oauth url.
-    :param token: The Github access token to use for the oauth url.
-    :return: list: The editable flag for pip and a git+https url with Oauth identification.
-    """
-    url = convert_to_github_url_with_token(url, token)
-    return ['-e', url]
-
-
-def convert_to_editable_github_url(url):
-    """
-    Convert a Github URL to a git+https url (does not work for private packages). The editable flag means the package
-    will be installed as source (i.e. all files will be present instead of it just being installed as a package).
-    :param url: The url to convert into a Github access token oauth url.
-    :return: list: The editable flag for pip and a git+https url.
-    """
+def convert_to_github_url(url):
     for prefix in [GIT_SSH_PREFIX, GIT_GIT_PREFIX]:
         if url.startswith(prefix):
             url = 'git+https://github.com/{}'.format(url[len(prefix):])
-    return ['-e', url]
+    return url
 
 
 def can_convert_url(url):
@@ -112,25 +93,10 @@ def collect_requirements(fname, transform_with_token=None):
             # -e 'git+git@github.com:ByteInternet/my-repo.git@20201127.1#egg=my-repo ; python_version=="3.7"'
             # Do not remove double quotes, since these could be used in the environment marker string i.e. "3.7".
             stripped_tokens = [token.replace("'", "") for token in tokens]
-
-            if can_convert_url(stripped_tokens[1]):
-                if transform_with_token:
-                    flag, github_url = convert_to_editable_github_url_with_token(
-                        stripped_tokens[1], transform_with_token)
-
-                    github_url = add_potential_pip_environment_markers_to_requirement(stripped_tokens, github_url)
-                    collected += [flag, github_url]
-                else:
-                    flag, github_url = convert_to_editable_github_url(stripped_tokens[1])
-
-                    github_url = add_potential_pip_environment_markers_to_requirement(stripped_tokens, github_url)
-                    collected += [flag, github_url]
-            else:
-                url = add_potential_pip_environment_markers_to_requirement(stripped_tokens, stripped_tokens[1])
-                collected += ['-e', url]
+            collected += convert_potential_editable_github_url(stripped_tokens[1], stripped_tokens, transform_with_token)
 
         elif ';' in tokens:
-            collected += [add_potential_pip_environment_markers_to_requirement(tokens, tokens[0])]
+            collected += convert_potential_git_url(tokens[0], tokens, transform_with_token)
 
         # No special casing for the rest. Just pass everything to pip
         else:
@@ -156,6 +122,45 @@ def add_potential_pip_environment_markers_to_requirement(stripped_tokens, requir
 
     environment_index = pip_environment_marker_index + 1
     return '{} ; {}'.format(requirement, stripped_tokens[environment_index])
+
+
+def convert_potential_git_url(requirement, tokens, transform_with_token=False):
+    """
+    Convert a potential Github URL to an git+https url that possibly identifies via an Oauth token. The Oauth
+    identification allows for installation of private packages.
+    :param requirement: The potential url to convert into a Github access token oauth url.
+    :param tokens: All specifications provided for the requirement (i.e. editable flag, the requirement, pip
+    environment markers, comments)
+    :param transform_with_token: Whether or not to transform to a github url with OAuth authentication
+    :return: list: The git+https url with possible Oauth identification.
+    """
+    if can_convert_url(requirement):
+        if transform_with_token:
+            github_url = convert_to_github_url_with_token(requirement, transform_with_token)
+            github_url = add_potential_pip_environment_markers_to_requirement(tokens, github_url)
+            return [github_url]
+        else:
+            github_url = convert_to_github_url(requirement)
+            github_url = add_potential_pip_environment_markers_to_requirement(tokens, github_url)
+            return [github_url]
+    else:
+        return [add_potential_pip_environment_markers_to_requirement(tokens, requirement)]
+
+
+def convert_potential_editable_github_url(requirement, tokens, transform_with_token=False):
+    """
+    Convert a potential Github URL to an editable git+https url that possibly identifies via an Oauth token. The Oauth
+    identification allows for installation of private packages. The editable flag means the package
+    will be installed as source (i.e. all files will be present instead of it just being installed as a package).
+    :param requirement: The potential url to convert into a Github access token oauth url.
+    :param tokens: All specifications provided for the requirement (i.e. editable flag, the requirement, pip
+    environment markers, comments)
+    :param transform_with_token: Whether or not to transform to a github url with OAuth authentication
+    :return: list: The editable flag for pip and a git+https url with possible Oauth identification.
+    """
+    requirement_tokens = convert_potential_git_url(requirement, tokens, transform_with_token)
+    requirement_tokens.insert(0, '-e')
+    return requirement_tokens
 
 
 def install():
