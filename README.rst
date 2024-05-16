@@ -56,7 +56,7 @@ GitLab
 7. This will be used with CI_JOB_TOKEN
 
 Gitlab Domain
-------
+-------------
 
 When using custom domain 
 1. Generate a Personal Access Token from GitLab with the required scopes.
