@@ -1,6 +1,7 @@
 import os
 import tempfile
 from unittest import TestCase
+from unittest.mock import patch
 
 from pip_install_privates.install import collect_requirements
 
@@ -531,218 +532,87 @@ class TestInstall(TestCase):
             ],
         )
 
-    def test_transforms_vcs_git_url_to_oauth_gitlab(self):
-        fname = self._create_reqs_file(["git+git@gitlab.com:ByteInternet/..."])
+    def test_transforms_gitlab_url_to_oauth(self):
+        fname = self._create_reqs_file(["git+ssh://git@group.test/project.git@v1.0"])
 
-        ret = collect_requirements(
-            fname, transform_with_token="my-token", gitlab_domain="gitlab.com"
-        )
-        self.assertEqual(
-            ret, ["git+https://gitlab-ci-token:my-token@gitlab.com/ByteInternet/..."]
-        )
+        with patch.dict("os.environ", {"CI_JOB_TOKEN": "gitlab-token"}):
+            ret = collect_requirements(
+                fname, gitlab_domain="group.test", ci_job_token="gitlab-token"
+            )
 
-    def test_transforms_vcs_git_url_to_oauth_dashe_option_gitlab(self):
-        fname = self._create_reqs_file(["-e git+git@gitlab.com:ByteInternet/..."])
-
-        ret = collect_requirements(
-            fname, transform_with_token="my-token", gitlab_domain="gitlab.com"
-        )
         self.assertEqual(
             ret,
-            ["-e", "git+https://gitlab-ci-token:my-token@gitlab.com/ByteInternet/..."],
+            ["git+https://gitlab-ci-token:gitlab-token@group.test/project.git@v1.0"],
         )
 
-    def test_transforms_vcs_ssh_url_to_oauth_gitlab(self):
-        fname = self._create_reqs_file(["git+ssh://git@gitlab.com/ByteInternet/..."])
+    def test_transforms_gitlab_git_url_to_oauth(self):
+        fname = self._create_reqs_file(["git+git@group.test:project.git@v1.0"])
 
-        ret = collect_requirements(
-            fname, transform_with_token="my-token", gitlab_domain="gitlab.com"
-        )
+        with patch.dict("os.environ", {"CI_JOB_TOKEN": "gitlab-token"}):
+            ret = collect_requirements(
+                fname, gitlab_domain="group.test", ci_job_token="gitlab-token"
+            )
+
         self.assertEqual(
-            ret, ["git+https://gitlab-ci-token:my-token@gitlab.com/ByteInternet/..."]
+            ret,
+            ["git+https://gitlab-ci-token:gitlab-token@group.test/project.git@v1.0"],
         )
 
-    def test_transforms_urls_in_included_files_gitlab(self):
+    def test_transforms_gitlab_https_url_to_oauth(self):
+        fname = self._create_reqs_file(["git+https://group.test/project.git@v1.0"])
+
+        with patch.dict("os.environ", {"CI_JOB_TOKEN": "gitlab-token"}):
+            ret = collect_requirements(
+                fname, gitlab_domain="group.test", ci_job_token="gitlab-token"
+            )
+
+        self.assertEqual(
+            ret,
+            ["git+https://gitlab-ci-token:gitlab-token@group.test/project.git@v1.0"],
+        )
+
+    def test_transforms_gitlab_url_included_files(self):
         file1 = self._create_reqs_file(
-            ["mock==2.0.0", "-e git+git@gitlab.com:ByteInternet/...", "nose==1.3.7"]
+            ["mock==2.0.0", "git+ssh://git@group.test/project.git@v1.0", "nose==1.3.7"]
         )
         fname = self._create_reqs_file(["-r {}".format(file1), "fso==0.3.1"])
 
-        ret = collect_requirements(
-            fname, transform_with_token="my-token", gitlab_domain="gitlab.com"
-        )
+        with patch.dict("os.environ", {"CI_JOB_TOKEN": "gitlab-token"}):
+            ret = collect_requirements(
+                fname, gitlab_domain="group.test", ci_job_token="gitlab-token"
+            )
+
         self.assertEqual(
             ret,
             [
                 "mock==2.0.0",
-                "-e",
-                "git+https://gitlab-ci-token:my-token@gitlab.com/ByteInternet/...",
+                "git+https://gitlab-ci-token:gitlab-token@group.test/project.git@v1.0",
                 "nose==1.3.7",
                 "fso==0.3.1",
             ],
         )
 
-    def test_transforms_git_plus_git_urls_to_regular_url_if_no_token_provided_gitlab(
-        self,
-    ):
-        file1 = self._create_reqs_file(
-            ["mock==2.0.0", "-e git+git@gitlab.com:ByteInternet/...", "nose==1.3.7"]
-        )
-        fname = self._create_reqs_file(["-r {}".format(file1), "fso==0.3.1"])
-
-        ret = collect_requirements(fname, gitlab_domain="gitlab.com")
-        self.assertEqual(
-            ret,
+    def test_transforms_gitlab_git_url_with_environment_marker(self):
+        file = self._create_reqs_file(
             [
                 "mock==2.0.0",
-                "-e",
-                "git+https://gitlab.com/ByteInternet/...",
-                "nose==1.3.7",
-                "fso==0.3.1",
-            ],
-        )
-
-    def test_transforms_git_plus_ssh_urls_to_regular_url_if_no_token_provided_gitlab(
-        self,
-    ):
-        file1 = self._create_reqs_file(
-            [
-                "mock==2.0.0",
-                "-e git+ssh://git@gitlab.com/ByteInternet/...",
+                "-e 'git+ssh://git@group.test/project.git@v1.0 ; python_version==\"2.7\"'",
                 "nose==1.3.7",
             ]
         )
-        fname = self._create_reqs_file(["-r {}".format(file1), "fso==0.3.1"])
+        fname = self._create_reqs_file(["-r {}".format(file), "fso==0.3.1"])
 
-        ret = collect_requirements(fname, gitlab_domain="gitlab.com")
+        with patch.dict("os.environ", {"CI_JOB_TOKEN": "gitlab-token"}):
+            ret = collect_requirements(
+                fname, gitlab_domain="group.test", ci_job_token="gitlab-token"
+            )
 
         self.assertEqual(
             ret,
             [
                 "mock==2.0.0",
                 "-e",
-                "git+https://gitlab.com/ByteInternet/...",
-                "nose==1.3.7",
-                "fso==0.3.1",
-            ],
-        )
-
-    def test_transforms_git_plus_https_urls_to_https_url_with_oauth_token_if_token_provided_gitlab(
-        self,
-    ):
-        file1 = self._create_reqs_file(
-            ["mock==2.0.0", "git+https://gitlab.com/ByteInternet/...", "nose==1.3.7"]
-        )
-        fname = self._create_reqs_file(["-r {}".format(file1), "fso==0.3.1"])
-
-        ret = collect_requirements(
-            fname, transform_with_token="my-token", gitlab_domain="gitlab.com"
-        )
-
-        self.assertEqual(
-            ret,
-            [
-                "mock==2.0.0",
-                "git+https://gitlab-ci-token:my-token@gitlab.com/ByteInternet/...",
-                "nose==1.3.7",
-                "fso==0.3.1",
-            ],
-        )
-
-    def test_transforms_editable_requirement_with_pip_environment_marker_inline_comment_if_cannot_convert_to_gitlab_url(
-        self,
-    ):
-        file = self._create_reqs_file(
-            [
-                "mock==2.0.0",
-                "-e 'banana+https://gitlab.com/ByteInternet/... ; python_version==\"2.7\"'  # We need this because reasons",
-                "nose==1.3.7",
-            ]
-        )
-        fname = self._create_reqs_file(["-r {}".format(file), "fso==0.3.1"])
-
-        ret = collect_requirements(fname, gitlab_domain="gitlab.com")
-
-        self.assertEqual(
-            ret,
-            [
-                "mock==2.0.0",
-                "-e",
-                'banana+https://gitlab.com/ByteInternet/... ; python_version=="2.7"',
-                "nose==1.3.7",
-                "fso==0.3.1",
-            ],
-        )
-
-    def test_transforms_requirement_if_pip_environment_marker_in_tokens_with_inline_comment_gitlab(
-        self,
-    ):
-        file = self._create_reqs_file(
-            [
-                "mock==2.0.0",
-                'myrequirement==1.3.3.7 ; python_version=="3.7"  # We need this because reasons',
-                "nose==1.3.7",
-            ]
-        )
-        fname = self._create_reqs_file(["-r {}".format(file), "fso==0.3.1"])
-
-        ret = collect_requirements(fname, gitlab_domain="gitlab.com")
-
-        self.assertEqual(
-            ret,
-            [
-                "mock==2.0.0",
-                'myrequirement==1.3.3.7 ; python_version=="3.7"',
-                "nose==1.3.7",
-                "fso==0.3.1",
-            ],
-        )
-
-    def test_transforms_non_editable_gitlab_url_with_pip_environment_markers_to_correct_requirement(
-        self,
-    ):
-        file = self._create_reqs_file(
-            [
-                "mock==2.0.0",
-                'git+ssh://git@gitlab.com/ByteInternet/... ; python_version=="3.7"',
-                "nose==1.3.7",
-            ]
-        )
-        fname = self._create_reqs_file(["-r {}".format(file), "fso==0.3.1"])
-
-        ret = collect_requirements(fname, gitlab_domain="gitlab.com")
-
-        self.assertEqual(
-            ret,
-            [
-                "mock==2.0.0",
-                'git+https://gitlab.com/ByteInternet/... ; python_version=="3.7"',
-                "nose==1.3.7",
-                "fso==0.3.1",
-            ],
-        )
-
-    def test_transforms_non_editable_gitlab_url_with_pip_environment_markers_to_correct_requirement_with_token(
-        self,
-    ):
-        file = self._create_reqs_file(
-            [
-                "mock==2.0.0",
-                'git+ssh://git@gitlab.com/ByteInternet/... ; python_version=="3.7"',
-                "nose==1.3.7",
-            ]
-        )
-        fname = self._create_reqs_file(["-r {}".format(file), "fso==0.3.1"])
-
-        ret = collect_requirements(
-            fname, transform_with_token=True, gitlab_domain="gitlab.com"
-        )
-
-        self.assertEqual(
-            ret,
-            [
-                "mock==2.0.0",
-                'git+https://gitlab-ci-token:True@gitlab.com/ByteInternet/... ; python_version=="3.7"',
+                'git+https://gitlab-ci-token:gitlab-token@group.test/project.git@v1.0 ; python_version=="2.7"',
                 "nose==1.3.7",
                 "fso==0.3.1",
             ],

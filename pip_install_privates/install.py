@@ -4,6 +4,7 @@ import os
 from pip import __version__ as pip_version
 from pip_install_privates.utils import parse_pip_version
 
+# Determine the pip version and set appropriate imports
 pip_version_tuple = parse_pip_version(pip_version)
 gte_18_1 = pip_version_tuple[0] == 18 and pip_version_tuple[1] >= 1
 
@@ -18,11 +19,12 @@ elif pip_version_tuple[0] >= 10:
 else:
     from pip import status_codes, main as pip_main
 
+# Define URL prefixes
 GIT_SSH_PREFIX = "git+ssh://git@github.com/"
 GIT_GIT_PREFIX = "git+git@github.com:"
 GIT_HTTPS_PREFIX = "git+https://github.com/"
 
-# New GitLab prefixes
+GITLAB_DEFAULT_DOMAIN = "gitlab.com"
 GIT_SSH_PREFIX_GITLAB = "git+ssh://git@"
 GIT_GIT_PREFIX_GITLAB = "git+git@"
 GIT_HTTPS_PREFIX_GITLAB = "git+https://"
@@ -42,7 +44,7 @@ def convert_to_github_url_with_token(url, token):
     return url
 
 
-def convert_to_gitlab_url_with_token(url, token, gitlab_domain):
+def convert_to_gitlab_url_with_token(url, token, gitlab_domain=None):
     """
     Convert a GitLab URL to a git+https URL that uses an OAuth token.
     This allows for the installation of private packages.
@@ -51,14 +53,15 @@ def convert_to_gitlab_url_with_token(url, token, gitlab_domain):
     :param gitlab_domain: The domain of the GitLab instance.
     :return: A git+https URL with OAuth identification.
     """
+    domain = gitlab_domain if gitlab_domain else GITLAB_DEFAULT_DOMAIN
     prefixes = [
-        GIT_SSH_PREFIX_GITLAB + gitlab_domain + "/",
-        GIT_GIT_PREFIX_GITLAB + gitlab_domain + ":",
-        GIT_HTTPS_PREFIX_GITLAB + gitlab_domain + "/",
+        GIT_SSH_PREFIX_GITLAB + domain + "/",
+        GIT_GIT_PREFIX_GITLAB + domain + ":",
+        GIT_HTTPS_PREFIX_GITLAB + domain + "/",
     ]
     for prefix in prefixes:
         if url.startswith(prefix):
-            return f"git+https://gitlab-ci-token:{token}@{gitlab_domain}/{url[len(prefix):]}"
+            return f"git+https://gitlab-ci-token:{token}@{domain}/{url[len(prefix):]}"
     return url
 
 
@@ -74,21 +77,22 @@ def convert_to_github_url(url):
     return url
 
 
-def convert_to_gitlab_url(url, gitlab_domain):
+def convert_to_gitlab_url(url, gitlab_domain=None):
     """
     Convert a GitLab URL to a git+https URL without using an OAuth token.
     :param url: The URL to convert.
     :param gitlab_domain: The domain of the GitLab instance.
     :return: A git+https URL.
     """
+    domain = gitlab_domain if gitlab_domain else GITLAB_DEFAULT_DOMAIN
     prefixes = [
-        GIT_SSH_PREFIX_GITLAB + gitlab_domain + "/",
-        GIT_GIT_PREFIX_GITLAB + gitlab_domain + ":",
-        GIT_HTTPS_PREFIX_GITLAB + gitlab_domain + "/",
+        GIT_SSH_PREFIX_GITLAB + domain + "/",
+        GIT_GIT_PREFIX_GITLAB + domain + ":",
+        GIT_HTTPS_PREFIX_GITLAB + domain + "/",
     ]
     for prefix in prefixes:
         if url.startswith(prefix):
-            return f"git+https://{gitlab_domain}/{url[len(prefix):]}"
+            return f"git+https://{domain}/{url[len(prefix):]}"
     return url
 
 
@@ -105,19 +109,93 @@ def can_convert_url(url):
     )
 
 
-def replace_ci_job_token(url, ci_job_token):
+def add_potential_pip_environment_markers_to_requirement(stripped_tokens, requirement):
     """
-    Replace the placeholder ${CI_JOB_TOKEN} with the actual CI job token.
-    :param url: The URL to replace the token in.
-    :param ci_job_token: The CI job token to replace the placeholder with.
-    :return: The URL with the placeholder replaced by the actual CI job token.
+    Append pip environment markers to the requirement if present.
+    :param stripped_tokens: The tokens from the requirement line.
+    :param requirement: The base requirement.
+    :return: The requirement with pip environment markers appended.
     """
-    return url.replace("${CI_JOB_TOKEN}", ci_job_token)
+    try:
+        pip_environment_marker_index = stripped_tokens.index(";")
+    except ValueError:
+        return requirement
+    environment_index = pip_environment_marker_index + 1
+    return f"{requirement} ; {stripped_tokens[environment_index]}"
+
+
+def convert_potential_git_url(
+    requirement,
+    tokens,
+    transform_with_token=False,
+    gitlab_domain=None,
+    ci_job_token=None,
+):
+    """
+    Convert a potential Git URL to a git+https URL, optionally using an OAuth token.
+    :param requirement: The potential URL to convert.
+    :param tokens: All specifications provided for the requirement.
+    :param transform_with_token: The OAuth token to use for GitHub URLs.
+    :param gitlab_domain: The domain of the GitLab instance for GitLab URLs.
+    :param ci_job_token: The CI job token for GitLab URLs.
+    :return: A list containing the converted URL.
+    """
+    if can_convert_url(requirement):
+        if "gitlab.com" in requirement or (
+            gitlab_domain and f"@{gitlab_domain}" in requirement
+        ):
+            domain = gitlab_domain if gitlab_domain else GITLAB_DEFAULT_DOMAIN
+            if ci_job_token:
+                git_url = convert_to_gitlab_url_with_token(
+                    requirement, ci_job_token, domain
+                )
+            else:
+                git_url = convert_to_gitlab_url(requirement, domain)
+        elif transform_with_token:
+            git_url = convert_to_github_url_with_token(
+                requirement, transform_with_token
+            )
+        else:
+            git_url = convert_to_github_url(requirement)
+        git_url = add_potential_pip_environment_markers_to_requirement(tokens, git_url)
+        return [git_url]
+    return [add_potential_pip_environment_markers_to_requirement(tokens, requirement)]
+
+
+def convert_potential_editable_git_url(
+    requirement,
+    tokens,
+    transform_with_token=False,
+    gitlab_domain=None,
+    ci_job_token=None,
+):
+    """
+    Convert a potential editable Git URL to a git+https URL, optionally using an OAuth token.
+    :param requirement: The potential URL to convert.
+    :param tokens: All specifications provided for the requirement.
+    :param transform_with_token: The OAuth token to use for GitHub URLs.
+    :param gitlab_domain: The domain of the GitLab instance for GitLab URLs.
+    :param ci_job_token: The CI job token for GitLab URLs.
+    :return: A list containing the editable flag and the converted URL.
+    """
+    requirement_tokens = convert_potential_git_url(
+        requirement, tokens, transform_with_token, gitlab_domain, ci_job_token
+    )
+    requirement_tokens.insert(0, "-e")
+    return requirement_tokens
 
 
 def collect_requirements(
     fname, transform_with_token=None, gitlab_domain=None, ci_job_token=None
 ):
+    """
+    Collect and transform requirements from a file.
+    :param fname: The path to the requirements file.
+    :param transform_with_token: The OAuth token to use for GitHub URLs.
+    :param gitlab_domain: The domain of the GitLab instance for GitLab URLs.
+    :param ci_job_token: The CI job token for GitLab URLs.
+    :return: A list of collected and transformed requirements.
+    """
     with open(fname) as reqs:
         contents = reqs.readlines()
 
@@ -125,12 +203,13 @@ def collect_requirements(
     for line in contents:
         line = line.strip()
 
+        # Replace environment variable placeholders
+        if gitlab_domain:
+            line = line.replace("${GITLAB_DOMAIN}", gitlab_domain)
+
         # Skip empty lines and comments
         if not line or line.startswith("#"):
             continue
-
-        if ci_job_token:
-            line = replace_ci_job_token(line, ci_job_token)
 
         tokens = line.split()
 
@@ -140,14 +219,14 @@ def collect_requirements(
         #   alembic==0.8.8  # so we can apply Hypernode/ByteDB fixtures
         #   git+git://github.com/myself/myproject
         #   git+ssh://github.com/myself/myproject@v2
-        #
+
         if len(tokens) == 1 or tokens[1].startswith("#"):
             if can_convert_url(tokens[0]):
                 if gitlab_domain and f"{gitlab_domain}" in tokens[0]:
-                    if transform_with_token:
+                    if ci_job_token:
                         collected.append(
                             convert_to_gitlab_url_with_token(
-                                tokens[0], transform_with_token, gitlab_domain
+                                tokens[0], ci_job_token, gitlab_domain
                             )
                         )
                     else:
@@ -188,16 +267,20 @@ def collect_requirements(
                 collected += convert_potential_editable_git_url(
                     stripped_tokens[1],
                     stripped_tokens,
-                    transform_with_token,
-                    gitlab_domain,
-                    ci_job_token,
+                    ci_job_token=ci_job_token,
+                    gitlab_domain=gitlab_domain,
+                )
+            elif "gitlab.com" in stripped_tokens[1] and ci_job_token:
+                collected += convert_potential_editable_git_url(
+                    stripped_tokens[1],
+                    stripped_tokens,
+                    ci_job_token=ci_job_token,
                 )
             else:
                 collected += convert_potential_editable_git_url(
                     stripped_tokens[1],
                     stripped_tokens,
-                    transform_with_token,
-                    ci_job_token=ci_job_token,
+                    transform_with_token=transform_with_token,
                 )
 
         # Handles:
@@ -208,8 +291,8 @@ def collect_requirements(
             collected += convert_potential_git_url(
                 tokens[0],
                 tokens,
-                transform_with_token,
-                gitlab_domain,
+                transform_with_token=transform_with_token,
+                gitlab_domain=gitlab_domain,
                 ci_job_token=ci_job_token,
             )
 
@@ -218,89 +301,6 @@ def collect_requirements(
             collected += tokens
 
     return collected
-
-
-def add_potential_pip_environment_markers_to_requirement(stripped_tokens, requirement):
-    """
-    Append pip environment markers to the requirement if present.
-    :param stripped_tokens: The tokens from the requirement line.
-    :param requirement: The base requirement.
-    :return: The requirement with pip environment markers appended.
-    """
-    try:
-        pip_environment_marker_index = stripped_tokens.index(";")
-    except ValueError:
-        return requirement
-    environment_index = pip_environment_marker_index + 1
-    return f"{requirement} ; {stripped_tokens[environment_index]}"
-
-
-def convert_potential_git_url(
-    requirement,
-    tokens,
-    transform_with_token=False,
-    gitlab_domain=None,
-    ci_job_token=None,
-):
-    """
-    Convert a potential Git URL to a git+https URL, optionally using an OAuth token.
-    :param requirement: The potential URL to convert.
-    :param tokens: All specifications provided for the requirement.
-    :param transform_with_token: The OAuth token to use for GitHub URLs.
-    :param gitlab_domain: The domain of the GitLab instance for GitLab URLs.
-    :param ci_job_token: The CI job token for GitLab URLs.
-    :return: A list containing the converted URL.
-    """
-    if can_convert_url(requirement):
-        if transform_with_token:
-            if gitlab_domain and f"@{gitlab_domain}" in requirement:
-                git_url = convert_to_gitlab_url_with_token(
-                    requirement, transform_with_token, gitlab_domain
-                )
-            else:
-                git_url = convert_to_github_url_with_token(
-                    requirement, transform_with_token
-                )
-            git_url = add_potential_pip_environment_markers_to_requirement(
-                tokens, git_url
-            )
-            return [git_url]
-        else:
-            if gitlab_domain and f"@{gitlab_domain}" in requirement:
-                git_url = convert_to_gitlab_url(requirement, gitlab_domain)
-            else:
-                git_url = convert_to_github_url(requirement)
-            git_url = add_potential_pip_environment_markers_to_requirement(
-                tokens, git_url
-            )
-            return [git_url]
-    else:
-        return [
-            add_potential_pip_environment_markers_to_requirement(tokens, requirement)
-        ]
-
-
-def convert_potential_editable_git_url(
-    requirement,
-    tokens,
-    transform_with_token=False,
-    gitlab_domain=None,
-    ci_job_token=None,
-):
-    """
-    Convert a potential editable Git URL to a git+https URL, optionally using an OAuth token.
-    :param requirement: The potential URL to convert.
-    :param tokens: All specifications provided for the requirement.
-    :param transform_with_token: The OAuth token to use for GitHub URLs.
-    :param gitlab_domain: The domain of the GitLab instance for GitLab URLs.
-    :param ci_job_token: The CI job token for GitLab URLs.
-    :return: A list containing the editable flag and the converted URL.
-    """
-    requirement_tokens = convert_potential_git_url(
-        requirement, tokens, transform_with_token, gitlab_domain, ci_job_token
-    )
-    requirement_tokens.insert(0, "-e")
-    return requirement_tokens
 
 
 def install():
@@ -323,13 +323,13 @@ This means that the following URL:
 would be transformed to:
   git+https://<token>:x-oauth-basic@github.com/MyOrg/my-project.git@my-tag#egg=my_project
 
-Similarly, for GitLab:
-      -e git+git@my.gitlab.com:MyOrg/my-project.git@my-tag#egg=my_project
+For GitLab:
+      -e git+git@gitlab.com:MyOrg/my-project.git@my-tag#egg=my_project
     would be transformed to:
-      git+https://gitlab-ci-token:<token>@my.gitlab.com/MyOrg/my-project.git@my-tag#egg=my_project
+      git+https://gitlab-ci-token:<token>@gitlab.com/MyOrg/my-project.git@my-tag#egg=my_project
 
-    For a custom GitLab instance with placeholders in the `requirements.txt` file:
-      git+https://gitlab-ci-token:${{CI_JOB_TOKEN}}@${{GITLAB_DOMAIN}}/your-repo.git@20240227.1#egg=your-repo
+For a custom GitLab instance ensure you include the GITLAB_DOMAIN variable stored in Gitlab env variable in the `requirements.txt` file:
+      git+git://{{GITLAB_DOMAIN}}/your-repo.git@20240227.1#egg=your-repo
 
 Non-private GitHub and GitLab URLs (git+https) and non-GitHub/GitLab URLs are kept as-is, but
 are also stripped of the -e flag. If no token is given, private URLs will be
