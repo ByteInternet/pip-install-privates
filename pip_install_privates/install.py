@@ -329,7 +329,7 @@ For GitLab:
       git+https://gitlab-ci-token:<token>@gitlab.com/MyOrg/my-project.git@my-tag#egg=my_project
 
 For a custom GitLab instance ensure you include the GITLAB_DOMAIN variable stored in Gitlab env variable in the `requirements.txt` file:
-      git+git://{{GITLAB_DOMAIN}}/your-repo.git@20240227.1#egg=your-repo
+      git+git://${GITLAB_DOMAIN}/your-repo.git@20240227.1#egg=your-repo
 
 Non-private GitHub and GitLab URLs (git+https) and non-GitHub/GitLab URLs are kept as-is, but
 are also stripped of the -e flag. If no token is given, private URLs will be
