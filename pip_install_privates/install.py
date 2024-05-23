@@ -186,7 +186,11 @@ def convert_potential_editable_git_url(
 
 
 def collect_requirements(
-    fname, transform_with_token=None, gitlab_domain=None, ci_job_token=None
+    fname,
+    transform_with_token=None,
+    gitlab_domain=None,
+    ci_job_token=None,
+    github_root_dir=None,
 ):
     """
     Collect and transform requirements from a file.
@@ -194,6 +198,7 @@ def collect_requirements(
     :param transform_with_token: The OAuth token to use for GitHub URLs.
     :param gitlab_domain: The domain of the GitLab instance for GitLab URLs.
     :param ci_job_token: The CI job token for GitLab URLs.
+    :param github_root_dir: Specifies the base directory on GitHub to be transformed when applying the private tag.
     :return: A list of collected and transformed requirements.
     """
     with open(fname) as reqs:
@@ -202,6 +207,11 @@ def collect_requirements(
     collected = []
     for line in contents:
         line = line.strip()
+
+        if "github.com/" in line and "#pip-private" in line:
+            line = transform_github_to_gitlab(
+                line, ci_job_token, gitlab_domain, github_root_dir
+            )
 
         # Replace environment variable placeholders
         if gitlab_domain:
@@ -303,6 +313,22 @@ def collect_requirements(
     return collected
 
 
+def transform_github_to_gitlab(line, ci_job_token, gitlab_domain, github_root_dir):
+    # Define possible URL prefixes for GitHub URLs
+    prefixes = [GIT_SSH_PREFIX, GIT_GIT_PREFIX, GIT_HTTPS_PREFIX]
+
+    # Check each prefix to see if it appears in the line with the transform directory and the private marker
+    for prefix in prefixes:
+        search_pattern = f"{prefix}{github_root_dir}/"  # Ensure the slash is there to correctly identify the directory
+        if search_pattern in line and "#pip-private" in line:
+            parts = line.split("#pip-private")[0].strip()
+            repo_part = parts.split(search_pattern)[1]
+            new_url = f"git+https://gitlab-ci-token:{ci_job_token}@{gitlab_domain}/{repo_part}"
+            return new_url
+
+    return line
+
+
 def install():
     """
     Install all requirements from the specified file with pip, optionally transforming URLs to use OAuth tokens.
@@ -310,31 +336,39 @@ def install():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="""
-Install all requirements from the specified file with pip. Optionally transform
-git+git and git+ssh URLs to private repositories to use a given Personal Access Token for
-GitHub or GitLab. This allows for installation without a suitable SSH agent,
-which is often the case when installing requirements in a Docker container.
-These URLs will also be stripped of the -e flag, so they are installed globally.
-Note the -e flag is optional for git+git://github.com and git+ssh://github.com
-URLs.
+    Installs packages from a specified requirements file using pip, with the ability to transform repository URLs for private access using personal access tokens. This script is particularly useful in environments that lack SSH agent support, such as Docker containers, ensuring seamless installations of packages from private repositories.
 
-This means that the following URL:
-  -e git+git@github.com:MyOrg/my-project.git@my-tag#egg=my_project
-would be transformed to:
-  git+https://<token>:x-oauth-basic@github.com/MyOrg/my-project.git@my-tag#egg=my_project
+    Features:
+    - Transforms git+git and git+ssh URLs for GitHub and GitLab to use HTTPS with personal access tokens. This facilitates installations without an SSH agent.
+    - Automatically strips the -e (editable) flag from URLs to enforce global installation, enhancing consistency and stability in production environments.
+    - Supports custom GitLab instances by replacing GitHub URLs with GitLab URLs using environment-specific variables, which is useful for maintaining public GitHub URLs in your requirements file but needing to fetch from GitLab during installation.
 
-For GitLab:
-      -e git+git@gitlab.com:MyOrg/my-project.git@my-tag#egg=my_project
-    would be transformed to:
-      git+https://gitlab-ci-token:<token>@gitlab.com/MyOrg/my-project.git@my-tag#egg=my_project
+    URL Transformation Examples:
+    - GitHub:
+      From: -e git+git@github.com:MyOrg/my-project.git@my-tag#egg=my_project
+      To: git+https://<token>:x-oauth-basic@github.com/MyOrg/my-project.git@my-tag#egg=my_project
+    
+    - GitLab:
+      From: -e git+git@gitlab.com:MyOrg/my-project.git@my-tag#egg=my_project
+      To: git+https://gitlab-ci-token:<token>@gitlab.com/MyOrg/my-project.git@my-tag#egg=my_project
+    
+    - Custom GitLab Instance:
+      To transform URLs with a private tag and map them to a GitLab domain, ensure the following environment variables are set:
+        CI_TOKEN = <token>, GITLAB_DOMAIN = <your-gitlab-domain>, GITHUB_ROOT_DIR = <github-root-directory>
+      Example where GITHUB_ROOT_DIR = ByteInternet:
+        From: git+ssh://git@github.com/ByteInternet/my-project.git@my-tag#egg=my_project #pip-private
+        To: git+https://gitlab-ci-token:<token>@<your-gitlab-domain>/my-project.git@my-tag#egg=my_project
 
-For a custom GitLab instance ensure you include the GITLAB_DOMAIN variable stored in Gitlab env variable in the `requirements.txt` file:
-      git+git://${GITLAB_DOMAIN}/your-repo.git@20240227.1#egg=your-repo
+    Note:
+    - Non-private GitHub and GitLab URLs (git+https) and non-GitHub/GitLab URLs remain unchanged, except for the removal of the -e flag.
+    - If no token is provided, private URLs retain the -e flag, preserving their editable state to ensure they can still be installed when manual authentication is configured.
 
-Non-private GitHub and GitLab URLs (git+https) and non-GitHub/GitLab URLs are kept as-is, but
-are also stripped of the -e flag. If no token is given, private URLs will be
-kept, including the -e flag (otherwise they cannot be installed at all).
-""",
+    Arguments:
+    - --token/-t: Personal Access Token for private GitHub repositories.
+    - --gitlab-token: Personal Access Token for private GitLab repositories.
+    - --github-root-dir: Base directory on GitHub for URL transformations to GitLab domains, assisting in URL mappings.
+    - req_file: Path to the requirements file to be processed and installed.
+    """,
     )
 
     parser.add_argument(
@@ -347,6 +381,16 @@ kept, including the -e flag (otherwise they cannot be installed at all).
         "--gitlab-token",
         help="Enable your Personal Access Token for GitLab private repositories",
         default=os.environ.get("CI_JOB_TOKEN"),
+    )
+
+    parser.add_argument(
+        "--github-root-dir",
+        help=(
+            "Specifies the base directory on GitHub to be transformed when applying the private tag. "
+            "For example, if '--github-root-dir=ByteInternet' is set, any URL starting with 'github.com/ByteInternet' "
+            "will be transformed to use the configured GitLab domain. This directory acts as a root folder in URL transformations."
+        ),
+        default=os.environ.get("GITHUB_ROOT_DIR"),
     )
     parser.add_argument("req_file", help="path to the requirements file to install")
     args = parser.parse_args()

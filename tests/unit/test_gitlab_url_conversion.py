@@ -5,6 +5,7 @@ from pip_install_privates.install import (
     convert_to_gitlab_url_with_token,
     collect_requirements,
     convert_potential_git_url,
+    transform_github_to_gitlab,
 )
 
 
@@ -190,17 +191,34 @@ class TestGitLabURLConversion(unittest.TestCase):
             )
             self.assertEqual(result, expected)
 
+    def test_convert_to_gitlab_with_private_comment(self):
+        gitlab_token = "token"
+        gitlab_domain = "group.team.blue/hypernode"
+        github_root_dir = "ByteInternet"
+        requirement = "git+ssh://git@github.com/ByteInternet/my-project.git@my-tag#egg=my_project #pip-private"
+
+        expected = "git+https://gitlab-ci-token:token@group.team.blue/hypernode/my-project.git@my-tag#egg=my_project"
+
+        with patch("builtins.open", new_callable=mock_open, read_data=requirement):
+            result = transform_github_to_gitlab(
+                line=requirement,
+                ci_job_token=gitlab_token,
+                gitlab_domain=gitlab_domain,
+                github_root_dir=github_root_dir,
+            )
+            self.assertEqual(result, expected)
+
     def test_editable_gitlab_url_with_token(self):
         fname = "requirements.txt"
         gitlab_token = "token"
         github_token = None
-        gitlab_domain = None
+        gitlab_domain = "group.team.blue/hypernode"
+        github_root_dir = "ByteInternet"
         requirements = [
-            "-e git+git@gitlab.com:MyOrg/my-project.git@my-tag#egg=my_project",
+            "git+https://github.com/ByteInternet/my-project.git@my-tag#egg=my_project #pip-private",
         ]
         expected = [
-            "-e",
-            "git+https://gitlab-ci-token:token@gitlab.com/MyOrg/my-project.git@my-tag#egg=my_project",
+            "git+https://gitlab-ci-token:token@group.team.blue/hypernode/my-project.git@my-tag#egg=my_project",
         ]
 
         with patch(
@@ -211,6 +229,7 @@ class TestGitLabURLConversion(unittest.TestCase):
                 gitlab_domain=gitlab_domain,
                 ci_job_token=gitlab_token,
                 transform_with_token=github_token,
+                github_root_dir=github_root_dir,
             )
             self.assertEqual(result, expected)
 

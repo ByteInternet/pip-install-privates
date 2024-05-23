@@ -31,6 +31,23 @@ Usage
 
 Run ``pip_install_privates --help`` for more information.
 
+Environment Variables
+---------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Variable
+     - Description
+   * - ``GITHUB_TOKEN``
+     - Your Personal Access Token for GitHub. Used for accessing private GitHub repositories.
+   * - ``GITLAB_TOKEN`` or ``CI_JOB_TOKEN``
+     - Your Personal Access Token for GitLab. Used for accessing private GitLab repositories.
+   * - ``GITLAB_DOMAIN``
+     - The domain of your custom GitLab instance, if not using the standard ``gitlab.com``.
+   * - ``GITHUB_ROOT_DIR``
+     - The base directory on GitHub that will be transformed when using the ``#pip-private`` tag. Helps in mapping URLs from GitHub to GitLab.
+
 To use `pip_install_privates`, you need a Personal Access Token from GitHub or GitLab.
 
 GitHub
@@ -54,7 +71,7 @@ GitLab
 6. Input the path to the group or project to add to the allowlist, and select "Add project".
 7. This will be used with `CI_JOB_TOKEN`.
 
-GitLab Domain
+GitLab Domain, 
 -------------
 
 When using a custom domain:
@@ -66,7 +83,22 @@ When using a custom domain:
 
     export GITLAB_DOMAIN=your.gitlab.domain
 
-Running the Script
+New Feature: Handling #pip-private Tag
+---------------------------------------
+
+Use the `#pip-private` tag in your `requirements.txt` to automatically convert GitHub URLs to private GitLab URLs during installation:
+
+.. code-block:: plaintext
+
+    git+ssh://git@github.com/ByteInternet/my-project.git@my_tag#egg=my_project #pip-private
+
+This URL will be transformed to use the specified `CI_JOB_TOKEN`, `GITHUB_ROOT_DIR` and `GITLAB_DOMAIN`:
+
+.. code-block:: plaintext
+
+    git+https://gitlab-ci-token:token@your.gitlab.domain/projectDir/my-project.git@my_tag#egg=my_project
+
+Ensure you set `CI_JOB_TOKEN`, `GITLAB_DOMAIN`, and `GITHUB_ROOT_DIR` for accurate URL conversion.\Running the Script
 ------------------
 
 If using a custom GitLab domain, ensure your `requirements.txt` or `base.txt` contains the domain variable you wish to mask. Example below:
@@ -75,6 +107,7 @@ If using a custom GitLab domain, ensure your `requirements.txt` or `base.txt` co
 
     git+https://${GITLAB_DOMAIN}/your-repo.git@20240227.1#egg=your-repo
     git+https://github.com/your_org/your_repo.git@v1.0.0#egg=your_package
+    git+https://github.com/your_org/your_repo.git@v1.0.0#egg=your_package #pip-private
 
 Run the script with the token:
 
