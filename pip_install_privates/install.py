@@ -243,6 +243,11 @@ def collect_requirements(
                         collected.append(
                             convert_to_gitlab_url(tokens[0], gitlab_domain)
                         )
+                elif "github.com/" in line and "#pip-private" in line:
+                    line = transform_github_to_gitlab(
+                    line, ci_job_token, gitlab_domain, github_root_dir
+            )
+                
                 elif transform_with_token:
                     collected.append(
                         convert_to_github_url_with_token(

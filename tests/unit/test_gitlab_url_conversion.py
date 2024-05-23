@@ -193,11 +193,11 @@ class TestGitLabURLConversion(unittest.TestCase):
 
     def test_convert_to_gitlab_with_private_comment(self):
         gitlab_token = "token"
-        gitlab_domain = "group.team.blue/hypernode"
+        gitlab_domain = "group.company/root"
         github_root_dir = "ByteInternet"
         requirement = "git+ssh://git@github.com/ByteInternet/my-project.git@my-tag#egg=my_project #pip-private"
 
-        expected = "git+https://gitlab-ci-token:token@group.team.blue/hypernode/my-project.git@my-tag#egg=my_project"
+        expected = "git+https://gitlab-ci-token:token@group.company/root/my-project.git@my-tag#egg=my_project"
 
         with patch("builtins.open", new_callable=mock_open, read_data=requirement):
             result = transform_github_to_gitlab(
@@ -212,13 +212,38 @@ class TestGitLabURLConversion(unittest.TestCase):
         fname = "requirements.txt"
         gitlab_token = "token"
         github_token = None
-        gitlab_domain = "group.team.blue/hypernode"
+        gitlab_domain = "group.company/root"
         github_root_dir = "ByteInternet"
         requirements = [
             "git+https://github.com/ByteInternet/my-project.git@my-tag#egg=my_project #pip-private",
         ]
         expected = [
-            "git+https://gitlab-ci-token:token@group.team.blue/hypernode/my-project.git@my-tag#egg=my_project",
+            "git+https://gitlab-ci-token:token@group.company/root/my-project.git@my-tag#egg=my_project",
+        ]
+
+        with patch(
+            "builtins.open", new_callable=mock_open, read_data="\n".join(requirements)
+        ):
+            result = collect_requirements(
+                fname,
+                gitlab_domain=gitlab_domain,
+                ci_job_token=gitlab_token,
+                transform_with_token=github_token,
+                github_root_dir=github_root_dir,
+            )
+            self.assertEqual(result, expected)
+            
+    def test_editable_gitlab_url_root_dir_and_ssh(self):
+        fname = "requirements.txt"
+        gitlab_token = "token"
+        github_token = None
+        gitlab_domain = "group.company/root"
+        github_root_dir = "ByteInternet"
+        requirements = [
+            "git+ssh://git@github.com/ByteInternet/my-project.git@my-tag#egg=my_project #pip-private",
+        ]
+        expected = [
+            "git+https://gitlab-ci-token:token@group.company/root/my-project.git@my-tag#egg=my_project",
         ]
 
         with patch(
