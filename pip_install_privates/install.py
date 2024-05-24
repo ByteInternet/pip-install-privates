@@ -108,7 +108,7 @@ def convert_to_gitlab_url(url, gitlab_domain=None):
         if url.startswith(prefix):
             transformed_url = f"git+https://{domain}/{url[len(prefix):]}"
             logger.debug(
-                f"Transformed {transformed_url} GitLab URL to git+https URL without using an OAuth token"
+                f"Transformed {url} GitLab URL to git+https URL without using an OAuth token"
             )
             return transformed_url
     return url
@@ -176,7 +176,7 @@ def convert_potential_git_url(
         else:
             git_url = convert_to_github_url(requirement)
         git_url = add_potential_pip_environment_markers_to_requirement(tokens, git_url)
-        logger.debug(f"Converted potential Git URL: {git_url}")
+        logger.debug(f"Converted potential Git URL: {requirement}")
         return [git_url]
     return [add_potential_pip_environment_markers_to_requirement(tokens, requirement)]
 
@@ -476,10 +476,7 @@ def install():
     github_root_dir = args.github_root_dir or os.environ.get("GITHUB_ROOT_DIR")
     project_names = args.project_names or os.environ.get("PROJECT_NAMES")
 
-    logger.debug(
-        f"Arguments received: token={args.token}, gitlab_token={ci_job_token}, gitlab_domain={gitlab_domain}, github_root_dir={github_root_dir}, project_names={project_names}"
-    )
-
+    
     pip_args = ["install"] + collect_requirements(
         args.req_file,
         transform_with_token=args.token,
