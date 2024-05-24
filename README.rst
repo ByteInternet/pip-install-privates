@@ -46,9 +46,9 @@ Environment Variables
    * - ``GITLAB_DOMAIN``
      - The domain of your custom GitLab instance, if not using the standard ``gitlab.com``.
    * - ``GITHUB_ROOT_DIR``
-     - The base directory on GitHub that will be transformed
+     - The base directory on GitHub that will be transformed.
    * - ``PROJECT_NAMES``
-     - comma-separated list of project names used to identify which GitHub URLs should be transformed to GitLab URLs. 
+     - Comma-separated list of project names used to identify which GitHub URLs should be transformed to GitLab URLs.
 
 To use `pip_install_privates`, you need a Personal Access Token from GitHub or GitLab.
 
@@ -90,42 +90,28 @@ Handling GitHub to GitLab URL Transformation
 
 Use `GITHUB_ROOT_DIR` and `PROJECT_NAMES` environment variables to automatically convert GitHub URLs to private GitLab URLs during installation.
 
-### GITHUB_ROOT_DIR
-
-`GITHUB_ROOT_DIR` specifies the base directory on GitHub that the script will transform when applying the private tag. It acts as a root folder in URL transformations.
-
-### PROJECT_NAMES
-
-`PROJECT_NAMES` is a comma-separated list of project names used to identify which GitHub URLs should be transformed to GitLab URLs. If a URL in the `requirements.txt` file contains any of the specified project names and starts with the specified `GITHUB_ROOT_DIR`, it will be transformed.
+- `GITHUB_ROOT_DIR` specifies the base directory on GitHub that the script will transform when applying the private tag. It acts as a root folder in URL transformations.
+- `PROJECT_NAMES` is a comma-separated list of project names used to identify which GitHub URLs should be transformed to GitLab URLs. If a URL in the `requirements.txt` file contains any of the specified project names and starts with the specified `GITHUB_ROOT_DIR`, it will be transformed.
 
 Example:
 - GitHub URL: `git+ssh://git@github.com/ByteInternet/my-project.git@my_tag#egg=my_project`
 - GITHUB_ROOT_DIR: `ByteInternet`
-- GITHUB_DOMAIN `your.gitlab.domain/root`
+- GITLAB_DOMAIN: `your.gitlab.domain`
 - PROJECT_NAMES: `my-project,my-other-project`
-
-- Transformed GitLab URL: `git+https://gitlab-ci-token:token@your.gitlab.domain/root/ByteInternet/my-project.git@my_tag#egg=my_project`
-
-Execute the script with the following
-
-Example:
-- PROJECT_NAMES: `my-project,my-other-project`
-- Requirement: `git+ssh://git@github.com/ByteInternet/my-project.git@my_tag#egg=my_project`
 - Transformed GitLab URL: `git+https://gitlab-ci-token:token@your.gitlab.domain/ByteInternet/my-project.git@my_tag#egg=my_project`
 
-Execute the script with the following
+Execute the script with the following:
 
-.. code-block:: bash 
-    pip_install_privates --gitlab-token ${CI_JOB_TOKEN} --gitlab-domain ${{GITLAB_DOMAIN} --github-root-dir ${GITHUB_ROOT_DIR} --project-names ${PROJECT_NAMES} requirements/development.txt Running the Script
+.. code-block:: bash
 
-Ensure your `requirements.txt` or `base.txt` contains the necessary URLs.
+    pip_install_privates --gitlab-token ${CI_JOB_TOKEN} --gitlab-domain ${GITLAB_DOMAIN} --github-root-dir ${GITHUB_ROOT_DIR} --project-names ${PROJECT_NAMES} requirements/development.txt
 
 GitHub with token
 -----------------
 
 .. code-block:: bash
-    git+ssh://git@github.com/your_org/your_repo.git@v1.0.0#egg=your_package
 
+    git+ssh://git@github.com/your_org/your_repo.git@v1.0.0#egg=your_package
 
 Run the script with the token:
 
