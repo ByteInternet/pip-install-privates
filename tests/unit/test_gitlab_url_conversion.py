@@ -235,5 +235,3 @@ class TestGitLabURLConversion(unittest.TestCase):
                     github_root_dir=github_root_dir,
                 )
                 self.assertEqual(result, expected)
-                
-                

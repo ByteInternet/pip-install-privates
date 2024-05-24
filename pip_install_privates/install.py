@@ -47,7 +47,7 @@ def convert_to_github_url_with_token(url, token):
             transformed_url = (
                 f"git+https://{token}:x-oauth-basic@github.com/{url[len(prefix):]}"
             )
-            logger.debug(f"Transformed GitHub URL with token: {transformed_url}")
+            logger.debug("Transformed GitHub URL with token")
             return transformed_url
     return url
 
@@ -72,7 +72,7 @@ def convert_to_gitlab_url_with_token(url, token, gitlab_domain=None):
             transformed_url = (
                 f"git+https://gitlab-ci-token:{token}@{domain}/{url[len(prefix):]}"
             )
-            logger.debug(f"Transformed GitLab URL with token: {transformed_url}")
+            logger.debug("Transformed GitLab URL with token")
             return transformed_url
     return url
 
@@ -86,7 +86,7 @@ def convert_to_github_url(url):
     for prefix in [GIT_SSH_PREFIX, GIT_GIT_PREFIX]:
         if url.startswith(prefix):
             transformed_url = f"git+https://github.com/{url[len(prefix):]}"
-            logger.debug(f"Transformed GitHub URL: {transformed_url}")
+            logger.debug(f"Transformed GitHub URL: {url} to git+https URL")
             return transformed_url
     return url
 
@@ -107,7 +107,9 @@ def convert_to_gitlab_url(url, gitlab_domain=None):
     for prefix in prefixes:
         if url.startswith(prefix):
             transformed_url = f"git+https://{domain}/{url[len(prefix):]}"
-            logger.debug(f"Transformed GitLab URL: {transformed_url}")
+            logger.debug(
+                f"Transformed {transformed_url} GitLab URL to git+https URL without using an OAuth token"
+            )
             return transformed_url
     return url
 
@@ -199,7 +201,7 @@ def convert_potential_editable_git_url(
         requirement, tokens, transform_with_token, gitlab_domain, ci_job_token
     )
     requirement_tokens.insert(0, "-e")
-    logger.debug(f"Converted potential editable Git URL: {requirement_tokens}")
+    logger.debug(f"Converted potential editable Git URL: {requirement}")
     return requirement_tokens
 
 
@@ -219,7 +221,6 @@ def collect_requirements(
     :param ci_job_token: The CI job token for GitLab URLs.
     :param github_root_dir: Specifies the base directory on GitHub to be transformed when applying the private tag.
     :param project_names: Comma-separated string of project names to look for in the GitHub URLs.
-    :param no_auth: Convert URLs to HTTPS without authentication.
     :return: A list of collected and transformed requirements.
     """
     if project_names is None:
@@ -242,8 +243,6 @@ def collect_requirements(
         if "github.com/" in original_line:
             for proj in project_names:
                 if proj in original_line:
-                    logger.debug(f"Line before GitHub to GitLab transform: {original_line}")
-                    logger.debug(f"proj is: {proj}")
                     line = transform_github_to_gitlab(
                         original_line,
                         ci_job_token,
@@ -251,9 +250,8 @@ def collect_requirements(
                         github_root_dir,
                         project_names,
                     )
-                else: 
+                else:
                     line = convert_to_github_url(original_line)
-                logger.debug(f"Line after transformation: {line}")
                 break  # Exit the loop once a transformation has been done
         else:
             line = original_line
@@ -279,7 +277,9 @@ def collect_requirements(
                 gitlab_domain=gitlab_domain,
                 ci_job_token=ci_job_token,
                 github_root_dir=github_root_dir,
-                project_names=",".join(project_names),  # Ensure project names are passed correctly
+                project_names=",".join(
+                    project_names
+                ),  # Ensure project names are passed correctly
             )
             continue
 
@@ -377,7 +377,6 @@ def transform_github_to_gitlab(
                 try:
                     repo_part = parts.split(f"{prefix}{github_root_dir}/")[1]
                 except IndexError:
-                    logger.error(f"Error processing line: {line}")
                     continue
 
                 new_url = f"git+https://gitlab-ci-token:{ci_job_token}@{gitlab_domain}/{repo_part}"
@@ -386,11 +385,9 @@ def transform_github_to_gitlab(
                     egg_part = line.split("#egg=")[1].split()[0]
                     new_url = f"{new_url}#egg={egg_part}"
 
-                logger.debug(f"Transformed GitHub to GitLab URL: {new_url}")
+                logger.debug(f"Transformed {repo_part} GitHub to GitLab URL")
                 return new_url
     return line
-
-
 
 
 def install():

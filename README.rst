@@ -46,7 +46,9 @@ Environment Variables
    * - ``GITLAB_DOMAIN``
      - The domain of your custom GitLab instance, if not using the standard ``gitlab.com``.
    * - ``GITHUB_ROOT_DIR``
-     - The base directory on GitHub that will be transformed when using the ``#pip-private`` tag. Helps in mapping URLs from GitHub to GitLab.
+     - The base directory on GitHub that will be transformed
+   * - ``PROJECT_NAMES``
+     - comma-separated list of project names used to identify which GitHub URLs should be transformed to GitLab URLs. 
 
 To use `pip_install_privates`, you need a Personal Access Token from GitHub or GitLab.
 
@@ -71,7 +73,7 @@ GitLab
 6. Input the path to the group or project to add to the allowlist, and select "Add project".
 7. This will be used with `CI_JOB_TOKEN`.
 
-GitLab Domain, 
+GitLab Domain
 -------------
 
 When using a custom domain:
@@ -83,44 +85,55 @@ When using a custom domain:
 
     export GITLAB_DOMAIN=your.gitlab.domain
 
-New Feature: Handling #pip-private Tag
----------------------------------------
+Handling GitHub to GitLab URL Transformation
+--------------------------------------------
 
-Use the `#pip-private` tag in your `requirements.txt` to automatically convert GitHub URLs to private GitLab URLs during installation:
+Use `GITHUB_ROOT_DIR` and `PROJECT_NAMES` environment variables to automatically convert GitHub URLs to private GitLab URLs during installation.
 
-.. code-block:: plaintext
+### GITHUB_ROOT_DIR
 
-    git+ssh://git@github.com/ByteInternet/my-project.git@my_tag#egg=my_project #pip-private
+`GITHUB_ROOT_DIR` specifies the base directory on GitHub that the script will transform when applying the private tag. It acts as a root folder in URL transformations.
 
-This URL will be transformed to use the specified `CI_JOB_TOKEN`, `GITHUB_ROOT_DIR` and `GITLAB_DOMAIN`:
+### PROJECT_NAMES
 
-.. code-block:: plaintext
+`PROJECT_NAMES` is a comma-separated list of project names used to identify which GitHub URLs should be transformed to GitLab URLs. If a URL in the `requirements.txt` file contains any of the specified project names and starts with the specified `GITHUB_ROOT_DIR`, it will be transformed.
 
-    git+https://gitlab-ci-token:token@your.gitlab.domain/projectDir/my-project.git@my_tag#egg=my_project
+Example:
+- GitHub URL: `git+ssh://git@github.com/ByteInternet/my-project.git@my_tag#egg=my_project`
+- GITHUB_ROOT_DIR: `ByteInternet`
+- GITHUB_DOMAIN `your.gitlab.domain/root`
+- PROJECT_NAMES: `my-project,my-other-project`
 
-Ensure you set `CI_JOB_TOKEN`, `GITLAB_DOMAIN`, and `GITHUB_ROOT_DIR` for accurate URL conversion.\Running the Script
-------------------
+- Transformed GitLab URL: `git+https://gitlab-ci-token:token@your.gitlab.domain/root/ByteInternet/my-project.git@my_tag#egg=my_project`
 
-If using a custom GitLab domain, ensure your `requirements.txt` or `base.txt` contains the domain variable you wish to mask. Example below:
+Execute the script with the following
+
+Example:
+- PROJECT_NAMES: `my-project,my-other-project`
+- Requirement: `git+ssh://git@github.com/ByteInternet/my-project.git@my_tag#egg=my_project`
+- Transformed GitLab URL: `git+https://gitlab-ci-token:token@your.gitlab.domain/ByteInternet/my-project.git@my_tag#egg=my_project`
+
+Execute the script with the following
+
+.. code-block:: bash 
+    pip_install_privates --gitlab-token ${CI_JOB_TOKEN} --gitlab-domain ${{GITLAB_DOMAIN} --github-root-dir ${GITHUB_ROOT_DIR} --project-names ${PROJECT_NAMES} requirements/development.txt Running the Script
+
+Ensure your `requirements.txt` or `base.txt` contains the necessary URLs.
+
+GitHub with token
+-----------------
 
 .. code-block:: bash
+    git+ssh://git@github.com/your_org/your_repo.git@v1.0.0#egg=your_package
 
-    git+https://${GITLAB_DOMAIN}/your-repo.git@20240227.1#egg=your-repo
-    git+https://github.com/your_org/your_repo.git@v1.0.0#egg=your_package
-    git+https://github.com/your_org/your_repo.git@v1.0.0#egg=your_package #pip-private
 
 Run the script with the token:
 
 .. code-block:: bash
 
-    pip_install_privates --token $GITHUB_TOKEN --gitlab-token $CI_JOB_TOKEN requirements.txt
+    pip_install_privates --token $GITHUB_TOKEN requirements.txt
 
 Run `pip_install_privates --help` for more information.
-
-Without Token
--------------
-
-If no token is provided, the script will use the default URLs. Ensure you have the necessary permissions set up for public repositories.
 
 Developing
 ----------
