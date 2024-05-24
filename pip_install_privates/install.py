@@ -1,8 +1,12 @@
 #!/usr/bin/env python
-import argparse
+import argparse, logging
 import os
 from pip import __version__ as pip_version
 from pip_install_privates.utils import parse_pip_version
+
+# Setup logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 # Determine the pip version and set appropriate imports
 pip_version_tuple = parse_pip_version(pip_version)
@@ -40,7 +44,11 @@ def convert_to_github_url_with_token(url, token):
     """
     for prefix in [GIT_SSH_PREFIX, GIT_GIT_PREFIX, GIT_HTTPS_PREFIX]:
         if url.startswith(prefix):
-            return f"git+https://{token}:x-oauth-basic@github.com/{url[len(prefix):]}"
+            transformed_url = (
+                f"git+https://{token}:x-oauth-basic@github.com/{url[len(prefix):]}"
+            )
+            logger.debug(f"Transformed GitHub URL with token: {transformed_url}")
+            return transformed_url
     return url
 
 
@@ -61,7 +69,11 @@ def convert_to_gitlab_url_with_token(url, token, gitlab_domain=None):
     ]
     for prefix in prefixes:
         if url.startswith(prefix):
-            return f"git+https://gitlab-ci-token:{token}@{domain}/{url[len(prefix):]}"
+            transformed_url = (
+                f"git+https://gitlab-ci-token:{token}@{domain}/{url[len(prefix):]}"
+            )
+            logger.debug(f"Transformed GitLab URL with token: {transformed_url}")
+            return transformed_url
     return url
 
 
@@ -73,7 +85,9 @@ def convert_to_github_url(url):
     """
     for prefix in [GIT_SSH_PREFIX, GIT_GIT_PREFIX]:
         if url.startswith(prefix):
-            return f"git+https://github.com/{url[len(prefix):]}"
+            transformed_url = f"git+https://github.com/{url[len(prefix):]}"
+            logger.debug(f"Transformed GitHub URL: {transformed_url}")
+            return transformed_url
     return url
 
 
@@ -92,7 +106,9 @@ def convert_to_gitlab_url(url, gitlab_domain=None):
     ]
     for prefix in prefixes:
         if url.startswith(prefix):
-            return f"git+https://{domain}/{url[len(prefix):]}"
+            transformed_url = f"git+https://{domain}/{url[len(prefix):]}"
+            logger.debug(f"Transformed GitLab URL: {transformed_url}")
+            return transformed_url
     return url
 
 
@@ -158,6 +174,7 @@ def convert_potential_git_url(
         else:
             git_url = convert_to_github_url(requirement)
         git_url = add_potential_pip_environment_markers_to_requirement(tokens, git_url)
+        logger.debug(f"Converted potential Git URL: {git_url}")
         return [git_url]
     return [add_potential_pip_environment_markers_to_requirement(tokens, requirement)]
 
@@ -182,6 +199,7 @@ def convert_potential_editable_git_url(
         requirement, tokens, transform_with_token, gitlab_domain, ci_job_token
     )
     requirement_tokens.insert(0, "-e")
+    logger.debug(f"Converted potential editable Git URL: {requirement_tokens}")
     return requirement_tokens
 
 
@@ -191,6 +209,8 @@ def collect_requirements(
     gitlab_domain=None,
     ci_job_token=None,
     github_root_dir=None,
+    project_names=None,
+    no_auth=False,
 ):
     """
     Collect and transform requirements from a file.
@@ -199,19 +219,45 @@ def collect_requirements(
     :param gitlab_domain: The domain of the GitLab instance for GitLab URLs.
     :param ci_job_token: The CI job token for GitLab URLs.
     :param github_root_dir: Specifies the base directory on GitHub to be transformed when applying the private tag.
+    :param project_names: Comma-separated string of project names to look for in the GitHub URLs.
+    :param no_auth: Convert URLs to HTTPS without authentication.
     :return: A list of collected and transformed requirements.
     """
+    if project_names is None:
+        project_names = os.environ.get("PROJECT_NAMES", "")
+    project_names = [proj.strip() for proj in project_names.split(",")]
+
+    logger.debug(f"Collecting requirements from {fname}")
+    logger.debug(f"Using GitHub root dir: {github_root_dir}")
+    logger.debug(f"Using project names: {project_names}")
+
     with open(fname) as reqs:
         contents = reqs.readlines()
 
     collected = []
     for line in contents:
-        line = line.strip()
+        original_line = line.strip()
+        logger.debug(f"Processing line: {original_line}")
 
-        if "github.com/" in line and "#pip-private" in line:
-            line = transform_github_to_gitlab(
-                line, ci_job_token, gitlab_domain, github_root_dir
-            )
+        # Early transform check before any other processing
+        if "github.com/" in original_line:
+            for proj in project_names:
+                logger.debug(f"proj is: {proj}")
+                logger.debug(f"project names is: {project_names}")
+                if proj and f"github.com/{github_root_dir}/{proj}" in original_line:
+                    logger.debug(f"Line before GitHub to GitLab transform: {original_line}")
+                    logger.debug(f"proj is: {proj}")
+                    line = transform_github_to_gitlab(
+                        original_line,
+                        ci_job_token,
+                        gitlab_domain,
+                        github_root_dir,
+                        project_names,
+                    )
+                    logger.debug(f"Line after GitHub to GitLab transform: {line}")
+                    break  # Exit the loop once a transformation has been done
+        else:
+            line = original_line
 
         # Replace environment variable placeholders
         if gitlab_domain:
@@ -222,6 +268,21 @@ def collect_requirements(
             continue
 
         tokens = line.split()
+
+        # Handles:
+        #   -r base.txt
+        if tokens[0] == "-r":
+            curdir = os.path.abspath(os.path.dirname(fname))
+            logger.debug(f"Recursively collecting requirements from: {tokens[1]}")
+            collected += collect_requirements(
+                os.path.join(curdir, tokens[1]),
+                transform_with_token=transform_with_token,
+                gitlab_domain=gitlab_domain,
+                ci_job_token=ci_job_token,
+                github_root_dir=github_root_dir,
+                project_names=",".join(project_names),  # Ensure project names are passed correctly
+            )
+            continue
 
         # Handles:
         #   alembic>=0.8
@@ -243,11 +304,6 @@ def collect_requirements(
                         collected.append(
                             convert_to_gitlab_url(tokens[0], gitlab_domain)
                         )
-                elif "github.com/" in line and "#pip-private" in line:
-                    line = transform_github_to_gitlab(
-                    line, ci_job_token, gitlab_domain, github_root_dir
-            )
-                
                 elif transform_with_token:
                     collected.append(
                         convert_to_github_url_with_token(
@@ -258,17 +314,6 @@ def collect_requirements(
                     collected.append(tokens[0])
             else:
                 collected.append(tokens[0])
-
-        # Handles:
-        #   -r base.txt
-        elif tokens[0] == "-r":
-            curdir = os.path.abspath(os.path.dirname(fname))
-            collected += collect_requirements(
-                os.path.join(curdir, tokens[1]),
-                transform_with_token=transform_with_token,
-                gitlab_domain=gitlab_domain,
-                ci_job_token=ci_job_token,
-            )
 
         # Rewrite private repositories that normally would use ssh (with keys in an agent), to using
         # an oauth key
@@ -318,20 +363,34 @@ def collect_requirements(
     return collected
 
 
-def transform_github_to_gitlab(line, ci_job_token, gitlab_domain, github_root_dir):
-    # Define possible URL prefixes for GitHub URLs
+
+def transform_github_to_gitlab(
+    line, ci_job_token, gitlab_domain, github_root_dir, project_names
+):
     prefixes = [GIT_SSH_PREFIX, GIT_GIT_PREFIX, GIT_HTTPS_PREFIX]
 
-    # Check each prefix to see if it appears in the line with the transform directory and the private marker
     for prefix in prefixes:
-        search_pattern = f"{prefix}{github_root_dir}/"  # Ensure the slash is there to correctly identify the directory
-        if search_pattern in line and "#pip-private" in line:
-            parts = line.split("#pip-private")[0].strip()
-            repo_part = parts.split(search_pattern)[1]
-            new_url = f"git+https://gitlab-ci-token:{ci_job_token}@{gitlab_domain}/{repo_part}"
-            return new_url
+        for project_name in project_names:
+            search_pattern = f"{prefix}{github_root_dir}/{project_name}"
+            if search_pattern in line:
+                parts = line.split("#")[0].strip()
+                try:
+                    repo_part = parts.split(f"{prefix}{github_root_dir}/")[1]
+                except IndexError:
+                    logger.error(f"Error processing line: {line}")
+                    continue
 
+                new_url = f"git+https://gitlab-ci-token:{ci_job_token}@{gitlab_domain}/{repo_part}"
+
+                if "#egg=" in line:
+                    egg_part = line.split("#egg=")[1].split()[0]
+                    new_url = f"{new_url}#egg={egg_part}"
+
+                logger.debug(f"Transformed GitHub to GitLab URL: {new_url}")
+                return new_url
     return line
+
+
 
 
 def install():
@@ -358,10 +417,10 @@ def install():
       To: git+https://gitlab-ci-token:<token>@gitlab.com/MyOrg/my-project.git@my-tag#egg=my_project
     
     - Custom GitLab Instance:
-      To transform URLs with a private tag and map them to a GitLab domain, ensure the following environment variables are set:
-        CI_TOKEN = <token>, GITLAB_DOMAIN = <your-gitlab-domain>, GITHUB_ROOT_DIR = <github-root-directory>
+      To transform URLs and map them to a GitLab domain, ensure the following environment variables are set:
+        CI_TOKEN = <token>, GITLAB_DOMAIN = <your-gitlab-domain>, GITHUB_ROOT_DIR = <github-root-directory>, PROJECT_NAMES = <comma-separated-project-names>
       Example where GITHUB_ROOT_DIR = ByteInternet:
-        From: git+ssh://git@github.com/ByteInternet/my-project.git@my-tag#egg=my_project #pip-private
+        From: git+ssh://git@github.com/ByteInternet/my-project.git@my-tag#egg=my_project
         To: git+https://gitlab-ci-token:<token>@<your-gitlab-domain>/my-project.git@my-tag#egg=my_project
 
     Note:
@@ -372,7 +431,9 @@ def install():
     - --token/-t: Personal Access Token for private GitHub repositories.
     - --gitlab-token: Personal Access Token for private GitLab repositories.
     - --github-root-dir: Base directory on GitHub for URL transformations to GitLab domains, assisting in URL mappings.
-    - req_file: Path to the requirements file to be processed and installed.
+    - --gitlab-domain: Domain of the GitLab instance for URL transformations.
+    - --project-names: Comma-separated list of project names to look for in the GitHub URLs.
+    - req_file: Path to the requirements file to install.
     """,
     )
 
@@ -397,15 +458,38 @@ def install():
         ),
         default=os.environ.get("GITHUB_ROOT_DIR"),
     )
+
+    parser.add_argument(
+        "--gitlab-domain",
+        help="Domain of the GitLab instance for URL transformations.",
+        default=os.environ.get("GITLAB_DOMAIN"),
+    )
+
+    parser.add_argument(
+        "--project-names",
+        help="Comma-separated list of project names to look for in the GitHub URLs.",
+        default=os.environ.get("PROJECT_NAMES"),
+    )
+
     parser.add_argument("req_file", help="path to the requirements file to install")
     args = parser.parse_args()
 
-    gitlab_domain = os.environ.get("GITLAB_DOMAIN")
+    gitlab_domain = args.gitlab_domain or os.environ.get("GITLAB_DOMAIN")
+    ci_job_token = args.gitlab_token or os.environ.get("CI_JOB_TOKEN")
+    github_root_dir = args.github_root_dir or os.environ.get("GITHUB_ROOT_DIR")
+    project_names = args.project_names or os.environ.get("PROJECT_NAMES")
+
+    logger.debug(
+        f"Arguments received: token={args.token}, gitlab_token={ci_job_token}, gitlab_domain={gitlab_domain}, github_root_dir={github_root_dir}, project_names={project_names}"
+    )
+
     pip_args = ["install"] + collect_requirements(
         args.req_file,
         transform_with_token=args.token,
         gitlab_domain=gitlab_domain,
-        ci_job_token=args.gitlab_token,
+        ci_job_token=ci_job_token,
+        github_root_dir=github_root_dir,
+        project_names=project_names,
     )
     if pip_main(pip_args) != status_codes.SUCCESS:
         raise RuntimeError("Error installing requirements")

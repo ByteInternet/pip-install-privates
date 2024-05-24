@@ -617,3 +617,29 @@ class TestInstall(TestCase):
                 "fso==0.3.1",
             ],
         )
+
+    def test_transforms_gitlab_git_url(self):
+        file = self._create_reqs_file(
+            [
+                "git+ssh://git@github.com/ByteInternet/my-project.git@my-tag#egg=my_project",
+            ]
+        )
+        fname = self._create_reqs_file(["-r {}".format(file), "fso==0.3.1"])
+
+        with patch.dict(
+            "os.environ", {"CI_JOB_TOKEN": "token", "PROJECT_NAMES": "my-project"}
+        ):
+            ret = collect_requirements(
+                fname,
+                gitlab_domain="group.company/root",
+                github_root_dir="ByteInternet",
+                ci_job_token="token",
+            )
+
+        self.assertEqual(
+            ret,
+            [
+                "git+https://gitlab-ci-token:token@group.company/root/my-project.git@my-tag#egg=my_project",
+                "fso==0.3.1",
+            ],
+        )
