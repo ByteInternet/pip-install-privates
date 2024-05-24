@@ -210,7 +210,6 @@ def collect_requirements(
     ci_job_token=None,
     github_root_dir=None,
     project_names=None,
-    no_auth=False,
 ):
     """
     Collect and transform requirements from a file.
@@ -242,9 +241,7 @@ def collect_requirements(
         # Early transform check before any other processing
         if "github.com/" in original_line:
             for proj in project_names:
-                logger.debug(f"proj is: {proj}")
-                logger.debug(f"project names is: {project_names}")
-                if proj and f"github.com/{github_root_dir}/{proj}" in original_line:
+                if proj in original_line:
                     logger.debug(f"Line before GitHub to GitLab transform: {original_line}")
                     logger.debug(f"proj is: {proj}")
                     line = transform_github_to_gitlab(
@@ -254,8 +251,10 @@ def collect_requirements(
                         github_root_dir,
                         project_names,
                     )
-                    logger.debug(f"Line after GitHub to GitLab transform: {line}")
-                    break  # Exit the loop once a transformation has been done
+                else: 
+                    line = convert_to_github_url(original_line)
+                logger.debug(f"Line after transformation: {line}")
+                break  # Exit the loop once a transformation has been done
         else:
             line = original_line
 
@@ -310,6 +309,8 @@ def collect_requirements(
                             tokens[0], transform_with_token
                         )
                     )
+                elif not transform_with_token:
+                    collected.append(convert_to_github_url(tokens[0]))
                 else:
                     collected.append(tokens[0])
             else:
@@ -361,7 +362,6 @@ def collect_requirements(
             collected += tokens
 
     return collected
-
 
 
 def transform_github_to_gitlab(

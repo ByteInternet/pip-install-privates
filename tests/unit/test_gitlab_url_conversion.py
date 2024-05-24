@@ -215,12 +215,12 @@ class TestGitLabURLConversion(unittest.TestCase):
         github_token = None
         gitlab_domain = "group.company/root"
         github_root_dir = "ByteInternet"
-        project_name = "my-project2"
+        project_name = "my-project2, my-project"
         requirements = [
-            "git+https://github.com/ByteInternet/my-project2.git@my-tag#egg=my_project",
+            "git+ssh://git@github.com/ByteInternet/my-project2.git",
         ]
         expected = [
-            "git+https://gitlab-ci-token:token@group.company/root/my-project2.git@my-tag#egg=my_project",
+            "git+https://gitlab-ci-token:token@group.company/root/my-project2.git",
         ]
 
         with patch(
