@@ -223,6 +223,7 @@ def collect_requirements(
     :param project_names: Comma-separated string of project names to look for in the GitHub URLs.
     :return: A list of collected and transformed requirements.
     """
+
     if project_names is None:
         project_names = os.environ.get("PROJECT_NAMES", "")
     project_names = [proj.strip() for proj in project_names.split(",")]
@@ -240,6 +241,7 @@ def collect_requirements(
         logger.debug(f"Processing line: {original_line}")
 
         # Early transform check before any other processing
+        transformed = False
         if "github.com/" in original_line:
             for proj in project_names:
                 if proj in original_line:
@@ -250,9 +252,10 @@ def collect_requirements(
                         github_root_dir,
                         project_names,
                     )
-                else:
-                    line = convert_to_github_url(original_line)
-                break  # Exit the loop once a transformation has been done
+                    transformed = True
+                    break  # Exit the loop once a transformation has been done
+            if not transformed:
+                line = convert_to_github_url(original_line)
         else:
             line = original_line
 
@@ -476,7 +479,6 @@ def install():
     github_root_dir = args.github_root_dir or os.environ.get("GITHUB_ROOT_DIR")
     project_names = args.project_names or os.environ.get("PROJECT_NAMES")
 
-    
     pip_args = ["install"] + collect_requirements(
         args.req_file,
         transform_with_token=args.token,

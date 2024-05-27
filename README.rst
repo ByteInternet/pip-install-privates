@@ -91,20 +91,20 @@ Handling GitHub to GitLab URL Transformation
 Use `GITHUB_ROOT_DIR` and `PROJECT_NAMES` environment variables to automatically convert GitHub URLs to private GitLab URLs during installation.
 
 - `GITHUB_ROOT_DIR` specifies the base directory on GitHub that the script will transform when applying the private tag. It acts as a root folder in URL transformations.
-- `PROJECT_NAMES` is a comma-separated list of project names used to identify which GitHub URLs should be transformed to GitLab URLs. If a URL in the `requirements.txt` file contains any of the specified project names and starts with the specified `GITHUB_ROOT_DIR`, it will be transformed.
+- `"PROJECT_NAMES"` is a comma-separated list of project names used to identify which GitHub URLs should be transformed to GitLab URLs. If a URL in the `requirements.txt` file contains any of the specified project names and starts with the specified `GITHUB_ROOT_DIR`, it will be transformed.
 
 Example:
 - GitHub URL: `git+ssh://git@github.com/ByteInternet/my-project.git@my_tag#egg=my_project`
 - GITHUB_ROOT_DIR: `ByteInternet`
 - GITLAB_DOMAIN: `your.gitlab.domain`
-- PROJECT_NAMES: `my-project,my-other-project`
+- PROJECT_NAMES: `my-project,my-other-project` # Wrap variable in "" pass in multiple project names on CI.
 - Transformed GitLab URL: `git+https://gitlab-ci-token:token@your.gitlab.domain/ByteInternet/my-project.git@my_tag#egg=my_project`
 
 Execute the script with the following:
 
 .. code-block:: bash
 
-    pip_install_privates --gitlab-token ${CI_JOB_TOKEN} --gitlab-domain ${GITLAB_DOMAIN} --github-root-dir ${GITHUB_ROOT_DIR} --project-names ${PROJECT_NAMES} requirements/development.txt
+    pip_install_privates --gitlab-token ${CI_JOB_TOKEN} --gitlab-domain ${GITLAB_DOMAIN} --github-root-dir ${GITHUB_ROOT_DIR} --project-names "${PROJECT_NAMES}" requirements/development.txt
 
 GitHub with token
 -----------------
