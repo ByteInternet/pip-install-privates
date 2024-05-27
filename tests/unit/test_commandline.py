@@ -34,6 +34,8 @@ class TestCommandLine(TestCase):
             transform_with_token=None,
             gitlab_domain=None,
             ci_job_token=None,
+            github_root_dir=None,
+            project_names=None,
         )
 
     def test_commandline_passes_specified_token_to_collect(self):
@@ -47,6 +49,8 @@ class TestCommandLine(TestCase):
             transform_with_token="my-token",
             gitlab_domain=None,
             ci_job_token=None,
+            github_root_dir=None,
+            project_names=None,
         )
 
     def test_uses_github_token_environment_variable_if_no_token_supplied(self):
@@ -61,6 +65,8 @@ class TestCommandLine(TestCase):
             transform_with_token="my-token",
             gitlab_domain=None,
             ci_job_token=None,
+            github_root_dir=None,
+            project_names=None,
         )
 
     def test_uses_none_if_no_token_supplied_and_no_github_token_defined_as_environment_variable(
@@ -74,6 +80,8 @@ class TestCommandLine(TestCase):
             transform_with_token=None,
             gitlab_domain=None,
             ci_job_token=None,
+            github_root_dir=None,
+            project_names=None,
         )
 
     def test_commandline_requires_requirements_file(self):
@@ -112,6 +120,8 @@ class TestCommandLine(TestCase):
             transform_with_token="my-token",
             gitlab_domain="my.gitlab.com",
             ci_job_token="CI-token",
+            github_root_dir=None,
+            project_names=None,
         )
 
     def test_uses_gitlab_domain_environment_variable_if_defined(self):
@@ -127,4 +137,43 @@ class TestCommandLine(TestCase):
             transform_with_token=None,
             gitlab_domain="my.gitlab.com",
             ci_job_token="CI-token",
+            github_root_dir=None,
+            project_names=None,
+        )
+
+    def test_commandline_with_all_arguments(self):
+        with patch.dict(
+            "pip_install_privates.install.os.environ",
+            {
+                "CI_JOB_TOKEN": "env_ci_job_token",
+                "GITLAB_DOMAIN": "env.gitlab.com",
+                "GITHUB_ROOT_DIR": "env_github_root_dir",
+                "PROJECT_NAMES": "env_project1,env_project2",
+            },
+        ):
+            with patch.object(
+                sys,
+                "argv",
+                [
+                    "pip-install",
+                    "--gitlab-token",
+                    "arg_ci_job_token",
+                    "--gitlab-domain",
+                    "arg.gitlab.com",
+                    "--github-root-dir",
+                    "arg_github_root_dir",
+                    "--project-names",
+                    "arg_project1,arg_project2",
+                    "requirements/development.txt",
+                ],
+            ):
+                install()
+
+        self.mock_collect.assert_called_once_with(
+            "requirements/development.txt",
+            transform_with_token=None,
+            gitlab_domain="arg.gitlab.com",
+            ci_job_token="arg_ci_job_token",
+            github_root_dir="arg_github_root_dir",
+            project_names="arg_project1,arg_project2",
         )
