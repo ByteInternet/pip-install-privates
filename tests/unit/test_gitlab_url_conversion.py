@@ -215,12 +215,41 @@ class TestGitLabURLConversion(unittest.TestCase):
         github_token = None
         gitlab_domain = "group.company/root"
         github_root_dir = "ByteInternet"
-        project_name = "my-project2, my-project"
+        project_name = "hypernode-api, my-project2"
         requirements = [
             "git+ssh://git@github.com/ByteInternet/my-project2.git",
         ]
         expected = [
             "git+https://gitlab-ci-token:token@group.company/root/my-project2.git",
+        ]
+
+        with patch(
+            "builtins.open", new_callable=mock_open, read_data="\n".join(requirements)
+        ):
+            with patch.dict("os.environ", {"PROJECT_NAMES": project_name}):
+                result = collect_requirements(
+                    fname,
+                    gitlab_domain=gitlab_domain,
+                    ci_job_token=gitlab_token,
+                    transform_with_token=github_token,
+                    github_root_dir=github_root_dir,
+                )
+                self.assertEqual(result, expected)
+
+    def test_editable_gitlab_url_with_token_and_multiple_project_env_variable(self):
+        fname = "requirements.txt"
+        gitlab_token = "token"
+        github_token = None
+        gitlab_domain = "group.company/root"
+        github_root_dir = "ByteInternet"
+        project_name = "my-project2, byte-api, not-in-req"
+        requirements = [
+            "git+ssh://git@github.com/ByteInternet/my-project2.git",
+            "git+ssh://git@github.com/ByteInternet/byte-api.git",
+        ]
+        expected = [
+            "git+https://gitlab-ci-token:token@group.company/root/my-project2.git",
+            "git+https://gitlab-ci-token:token@group.company/root/byte-api.git",
         ]
 
         with patch(
